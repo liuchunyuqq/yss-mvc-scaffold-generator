@@ -1,0 +1,21 @@
+result_schema: workflow-execution-result-v1
+work_unit: work-unit.<id>
+workflow_reference:
+  source: yss-product-lifecycle
+  skill: <skill>
+  invocation_mode: model-invoked
+result: blocked # completed | blocked | needs-human | failed
+evidence_refs: []
+changed_artifacts: []
+changed_files: []
+verification_results:
+  - verification_id: <stable-id>
+    command: <actual-command>
+    exit_code: <integer>
+    executed_at: <ISO-8601>
+    evidence_ref: <readable-ref>
+new_impacts: []
+stale_candidates: []
+next_route: <work-unit-or-gate>
+blocking_signals: []
+

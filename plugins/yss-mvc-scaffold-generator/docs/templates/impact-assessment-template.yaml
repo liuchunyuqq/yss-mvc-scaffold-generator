@@ -1,0 +1,22 @@
+schema_version: 1
+feature: <feature>
+repository_mode: project-instance
+change_type: <small-change | medium-change | new-module | high-risk-change>
+nearest_trustworthy_stage: stage.entry-triage
+impacts:
+  ui: false
+  product_design: false
+  api: false
+  backend: false
+  data: false
+  frontend: false
+  cross_repo: false
+  high_risk: false
+repositories: []
+triggered_gates: []
+not_applicable:
+  - item: <impact-or-gate>
+    reason: <reason>
+evidence_refs: []
+assessed_at: <ISO-8601>
+

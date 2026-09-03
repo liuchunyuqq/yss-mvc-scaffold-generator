@@ -1,0 +1,27 @@
+project_name: galaxy-data-analysis
+project_type: data-analysis
+repository_scope: current-repository
+database:
+  type: oracle
+  runtime_connection: true
+  metadata_contract: docs/data-model
+query:
+  sql_mode: readonly
+  allowed_statement_types:
+    - select
+    - with
+  parameter_binding_required: true
+modules:
+  - server
+  - core
+  - client
+  - repository
+  - adapter
+  - fegin-client
+workflow:
+  - requirement-and-data-contract
+  - specification-freeze
+  - vertical-slice-implementation
+  - automated-gates
+  - single-release-confirmation
+  - runtime-monitoring

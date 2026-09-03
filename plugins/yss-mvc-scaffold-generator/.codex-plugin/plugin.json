@@ -1,0 +1,38 @@
+{
+  "name": "yss-mvc-scaffold-generator",
+  "version": "1.0.0",
+  "description": "Initialize a YSS Java 8 data-analysis project with the standard six-module Maven scaffold, governance assets, and Oracle or OceanBase Oracle profiles.",
+  "author": {
+    "name": "liuchunyuqq",
+    "email": "liuchunyu1@ysstech.com",
+    "url": "https://github.com/liuchunyuqq"
+  },
+  "homepage": "https://github.com/liuchunyuqq/yss-mvc-scaffold-generator/tree/main/plugins/yss-mvc-scaffold-generator",
+  "repository": "https://github.com/liuchunyuqq/yss-mvc-scaffold-generator",
+  "keywords": [
+    "YSS",
+    "data-analysis",
+    "Java",
+    "Maven",
+    "scaffold",
+    "Oracle"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "YSS MVC Scaffold Generator",
+    "shortDescription": "Initialize a governed YSS Java data-analysis project.",
+    "longDescription": "Create an independent YSS Java 8 data-analysis project with six Maven modules, Oracle or OceanBase Oracle configuration, optional Mock execution, lifecycle documents, shared skills, and verification seams.",
+    "developerName": "liuchunyuqq",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "brandColor": "#1677FF",
+    "defaultPrompt": [
+      "初始化一个 YSS Oracle 数据分析项目",
+      "用 Mock 模式创建数据分析项目骨架",
+      "检查 YSS 数据分析项目初始化参数"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "personal",
+  "interface": {
+    "displayName": "YSS Team Plugins"
+  },
+  "plugins": [
+    {
+      "name": "yss-mvc-scaffold-generator",
+      "source": {
+        "source": "local",
+        "path": "./plugins/yss-mvc-scaffold-generator"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

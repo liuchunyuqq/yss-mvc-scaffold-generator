@@ -1,0 +1,11 @@
+schema_version: 1
+gate_id: gate.<id>
+decision: approved # approved | rejected
+artifact_ref: docs/.scratch/<feature>/<artifact>
+artifact_version: <immutable-version-or-digest>
+approval_scope: <本次批准覆盖的明确行为与边界>
+approver: <person-or-authority>
+evidence_ref: <message-id-or-review-record>
+approved_at: <ISO-8601>
+supersedes: null
+notes: <不包含其他门禁的隐式批准>

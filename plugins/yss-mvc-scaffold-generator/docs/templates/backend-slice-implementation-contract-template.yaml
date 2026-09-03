@@ -1,0 +1,19 @@
+schema_version: 1
+contract_id: <slice>-backend
+contract_version: 1
+slice_contract_ref: docs/.scratch/<feature>/gates/slice-implementation-contract.yaml
+status: draft # draft | ready-for-lifecycle-review | approved | blocked | stale
+affected_layers: []
+required_skills: []
+application_boundary: <use-case-boundary>
+transaction_boundary: <transaction-boundary>
+persistence_strategy: <gateway-repository-mapper-strategy>
+allowed_write_paths: []
+forbidden_patterns: []
+expected_evidence_files: []
+seam_deferred: []
+verification_commands:
+  - id: <stable-id>
+    command: <command>
+human_review_points: []
+

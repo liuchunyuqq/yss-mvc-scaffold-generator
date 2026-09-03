@@ -1,0 +1,4 @@
+interface:
+  display_name: "Data Analysis Project Scaffold"
+  short_description: "初始化独立 Git 的数据分析项目实例"
+  default_prompt: "Use $data-analysis-project-scaffold to initialize an independent Git-managed YSS data-analysis project-instance with six Oracle backend modules and a mock HTTP profile."

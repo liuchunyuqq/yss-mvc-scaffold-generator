@@ -1,0 +1,10 @@
+schema_version: 1
+repository_root: <absolute-or-registered-root>
+manifest_ref: yss-project.yaml
+manifest_schema_version: 1
+repository_mode: project-instance
+result: valid # valid | invalid | migration-required
+evidence_refs:
+  - yss-project.yaml
+checked_at: <ISO-8601>
+
