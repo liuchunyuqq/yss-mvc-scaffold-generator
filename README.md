@@ -14,8 +14,8 @@ codex plugin add yss-mvc-scaffold-generator@personal
 安装后在 Codex 中说：
 
 ```text
-使用 data-analysis-project-scaffold，在 C:\projects\sales-analysis 初始化项目。
+使用 yss-mvc-scaffold-generator，在 C:\projects\sales-analysis 初始化项目。
 项目名为 sales-analysis，基础包为 com.yss.dataanalysis.sales，数据库使用 oracle，并启用 Mock。
 ```
 
-插件会先执行 dry-run；确认参数和空目标目录后再正式生成。生成器不会覆盖或删除非空目录，不会写入真实凭据，也不会自动创建 commit 或 remote。
+插件会先执行 dry-run；确认参数和空目标目录后再正式生成。生成器不会覆盖或删除非空目录，不会写入真实凭据，也不会自动创建 commit 或 remote。初始化不执行 Maven 或下载依赖，settings 缺失时仍会完整生成，依赖解析延后到后续验证。

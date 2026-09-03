@@ -54,7 +54,7 @@ skills:
     instance_default_discoverable: false
     aliases: []
     impacts: [lifecycle]
-  - id: data-analysis-project-scaffold
+  - id: yss-mvc-scaffold-generator
     layer: specialist
     maturity: draft
     instance_default_discoverable: false

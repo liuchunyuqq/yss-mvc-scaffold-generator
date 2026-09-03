@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const script = path.join(path.dirname(fileURLToPath(import.meta.url)), "generate_project.mjs");
 const verifyScript = path.join(path.dirname(fileURLToPath(import.meta.url)), "verify_project.mjs");
-const harnessRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const harnessRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const gitAuthorEnvironment = {
   GIT_CONFIG_COUNT: "1",
   GIT_CONFIG_KEY_0: "user.name",
@@ -56,7 +56,7 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(await readFile(path.join(target, "docs/templates/backend-slice-implementation-contract-template.yaml"), "utf8"), /verification_commands:/);
   assert.match(await readFile(path.join(target, "docs/templates/workflow-execution-result-template.yaml"), "utf8"), /verification_id:/);
   await readFile(path.join(skillUtils, ".agents/skills/yss-product-lifecycle/SKILL.md"), "utf8");
-  await readFile(path.join(skillUtils, ".codex/skills/data-analysis-project-scaffold"), "utf8");
+  await readFile(path.join(skillUtils, ".codex/skills/yss-mvc-scaffold-generator"), "utf8");
   assert.equal(path.resolve(spawnSync("git", ["-C", target, "rev-parse", "--show-toplevel"], { encoding: "utf8" }).stdout.trim()), path.resolve(target));
   assert.equal(spawnSync("git", ["-C", target, "branch", "--show-current"], { encoding: "utf8" }).stdout.trim(), "main");
   assert.equal(spawnSync("git", ["-C", target, "rev-list", "--all", "--count"], { encoding: "utf8" }).stdout.trim(), "0");
@@ -227,6 +227,25 @@ test("Maven settings 支持环境变量且显式参数优先", async (t) => {
   const fromExplicit = run(["--project-name", "explicit-project", "--base-package", "com.yss.explicit", "--target-dir", explicitTarget, "--maven-settings", explicitSettings, "--dry-run"], { env: { YSS_MAVEN_SETTINGS: environmentSettings } });
   assert.equal(fromExplicit.status, 0, fromExplicit.stderr);
   assert.match(fromExplicit.stdout, /"maven_settings_source": "explicit"/);
+});
+test("未指定 settings 时仍完整生成，并将依赖解析延后到验证阶段", async (t) => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "yss-mvc-no-settings-"));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const target = path.join(base, "no-settings-project");
+  const result = run(["--project-name", "no-settings-project", "--base-package", "com.yss.nosettings", "--target-dir", target], {
+    env: { YSS_MAVEN_SETTINGS: "", USERPROFILE: path.join(base, "missing-user"), HOME: path.join(base, "missing-home") }
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.maven_settings_source, "maven-default");
+  assert.equal(output.maven_settings_available, false);
+  assert.equal(output.dependency_resolution, "deferred");
+  assert.equal(output.network_access_during_generation, "disabled");
+  for (const module of ["server", "core", "client", "repository", "adapter", "feign-client"]) {
+    await stat(path.join(target, module, "pom.xml"));
+  }
+  await stat(path.join(target, "mvnw"));
+  assert.equal((await readdir(target)).includes("settings.xml"), false);
 });
 test("拒绝非空目标目录", async (t) => {
   const base = await mkdtemp(path.join(os.tmpdir(), "data-analysis-scaffold-nonempty-")); t.after(() => rm(base, { recursive: true, force: true })); await mkdir(base, { recursive: true }); await writeFile(path.join(base, "keep.txt"), "keep");

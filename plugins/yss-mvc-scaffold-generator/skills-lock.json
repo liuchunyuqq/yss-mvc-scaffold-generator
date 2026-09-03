@@ -155,22 +155,6 @@
           ".trae/skills"
         ]
       },
-      "data-analysis-project-scaffold": {
-        "source": "project",
-        "sourceType": "local",
-        "skillPath": ".agents/skills/data-analysis-project-scaffold/SKILL.md",
-        "effectiveHash": "dab2c2e9f78591d42c2d16f49c480b456e7d98702be5a82cf8dd97bd5e8ec760",
-        "targets": [
-          ".agents/skills",
-          ".claude/skills",
-          ".codex/skills",
-          ".cursor/skills",
-          ".hermes/skills",
-          ".pi/skills",
-          ".qoder/skills",
-          ".trae/skills"
-        ]
-      },
       "diagnosing-bugs": {
         "source": "mattpocock/skills",
         "sourceType": "github",
@@ -1367,6 +1351,22 @@
         "sourceType": "local",
         "skillPath": ".agents/skills/yss-microapp-commit/SKILL.md",
         "effectiveHash": "d0ea3e6f06d59cc6fa425f1d3bee9836ee703026c9dff83c4e395fdeb4568b5c",
+        "targets": [
+          ".agents/skills",
+          ".claude/skills",
+          ".codex/skills",
+          ".cursor/skills",
+          ".hermes/skills",
+          ".pi/skills",
+          ".qoder/skills",
+          ".trae/skills"
+        ]
+      },
+      "yss-mvc-scaffold-generator": {
+        "source": "project",
+        "sourceType": "local",
+        "skillPath": ".agents/skills/yss-mvc-scaffold-generator/SKILL.md",
+        "effectiveHash": "1dd07fe0d03fa3756d393d942c8028e9dd58f67a656e80454c13faefb9be2317",
         "targets": [
           ".agents/skills",
           ".claude/skills",

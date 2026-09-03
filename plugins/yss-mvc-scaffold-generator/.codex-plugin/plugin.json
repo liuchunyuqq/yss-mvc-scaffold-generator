@@ -1,7 +1,7 @@
 {
   "name": "yss-mvc-scaffold-generator",
-  "version": "1.0.0",
-  "description": "Initialize a YSS Java 8 data-analysis project with the standard six-module Maven scaffold, governance assets, and Oracle or OceanBase Oracle profiles.",
+  "version": "1.1.0",
+  "description": "Initialize a YSS Java 8 MVC data-analysis project with a modular six-module Maven scaffold, governance assets, and Oracle or OceanBase Oracle profiles.",
   "author": {
     "name": "liuchunyuqq",
     "email": "liuchunyu1@ysstech.com",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "YSS MVC Scaffold Generator",
     "shortDescription": "Initialize a governed YSS Java data-analysis project.",
-    "longDescription": "Create an independent YSS Java 8 data-analysis project with six Maven modules, Oracle or OceanBase Oracle configuration, optional Mock execution, lifecycle documents, shared skills, and verification seams.",
+    "longDescription": "Create an independent YSS Java 8 MVC data-analysis project with six Maven modules, Oracle or OceanBase Oracle configuration, optional Mock execution, lifecycle documents, shared skills, and verification seams. Initialization is atomic and never downloads Maven dependencies; dependency resolution is deferred to explicit verification.",
     "developerName": "liuchunyuqq",
     "category": "Developer Tools",
     "capabilities": [

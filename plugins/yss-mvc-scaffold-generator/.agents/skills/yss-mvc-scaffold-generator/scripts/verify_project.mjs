@@ -11,10 +11,10 @@ async function required(relative) { try { await stat(path.join(root, relative));
 try {
   await Promise.all([".git", ".gitignore", ".artifact-workspace.yaml", "yss-project.yaml", "AGENTS.md", "CONTEXT.md", "skills-lock.json", "scripts/check-agent-environment.mjs", "docs/service/service-overview.md", "docs/service/module-map.md", "docs/service/current-capabilities.md", "docs/agents/issue-tracker.md", "docs/process/lifecycle-registry.yaml", "docs/process/harness-process-tailoring.md", "docs/process/implementation-repo-registry.yaml", "docs/templates/gate-approval-record-template.yaml", "docs/templates/impact-assessment-template.yaml", "docs/templates/repository-identity-check-template.yaml", "docs/templates/backend-slice-implementation-contract-template.yaml", "docs/templates/workflow-execution-result-template.yaml", ".yss/scaffold-generation.json"].map(required));
   const manifest = JSON.parse(await readFile(path.join(root, ".yss/scaffold-generation.json"), "utf8"));
-  if (manifest.skill !== "data-analysis-project-scaffold" || !["oracle", "oceanbase-oracle"].includes(manifest.database)) throw new Error("生成清单与数据分析脚手架合同不一致");
+  if (manifest.skill !== "yss-mvc-scaffold-generator" || !["oracle", "oceanbase-oracle"].includes(manifest.database)) throw new Error("生成清单与 YSS MVC 脚手架合同不一致");
   if (manifest.runtime_java !== "8" || manifest.project_version !== "2.0.0-SNAPSHOT" || manifest.persistence_profile !== "yss-mybatis-plus") throw new Error("Java 8/YSS MyBatis-Plus 技术基线不正确");
   const skillUtils = path.resolve(root, manifest.skill_utils_dir);
-  await Promise.all(["skill-utils.yaml", "skills-lock.json", ".agents/skills/yss-product-lifecycle/SKILL.md", ".codex/skills/data-analysis-project-scaffold"].map((relative) => required(path.join(manifest.skill_utils_dir, relative))));
+  await Promise.all(["skill-utils.yaml", "skills-lock.json", ".agents/skills/yss-product-lifecycle/SKILL.md", ".codex/skills/yss-mvc-scaffold-generator"].map((relative) => required(path.join(manifest.skill_utils_dir, relative))));
   for (const forbidden of [".agents", ".claude", ".codex", ".cursor", ".hermes", ".pi", ".qoder", ".trae"]) if (await stat(path.join(root, forbidden)).then(() => true).catch(() => false)) throw new Error(`项目不应携带技能投影目录: ${forbidden}`);
   if (JSON.stringify(manifest.modules) !== JSON.stringify(modules)) throw new Error("模块集合或顺序不正确");
   const backendRoot = path.join(root, manifest.backend_root || "");

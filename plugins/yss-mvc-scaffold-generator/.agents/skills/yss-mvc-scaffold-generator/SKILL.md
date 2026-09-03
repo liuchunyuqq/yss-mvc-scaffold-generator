@@ -1,11 +1,13 @@
 ---
-name: data-analysis-project-scaffold
-description: 从空目录初始化独立 Git 管理的 YSS Java 8 数据分析 project-instance，生成固定六模块、YSS 标准组件、Oracle/OceanBase Oracle 与 Mock HTTP API；不用于通用 DDD 服务。
+name: yss-mvc-scaffold-generator
+description: 从空目录初始化独立 Git 管理的 YSS Java 8 MVC 数据分析 project-instance，生成固定六模块、YSS 标准组件、Oracle/OceanBase Oracle 与 Mock HTTP API；不用于通用 DDD 服务。
 ---
 
-# Data Analysis Project Scaffold
+# YSS MVC Scaffold Generator
 
-本 Skill 是数据分析项目的确定性机械生成器。它生成独立 `project-instance`、独立 Git 仓库，并将项目根直接作为 Maven 工程根，包含 `server`、`core`、`client`、`repository`、`adapter`、`feign-client` 六模块；业务功能仍须回到 `yss-product-lifecycle` 与 `yss-router` 按垂直切片实现。
+本 Skill 是 YSS MVC 数据分析项目的确定性机械生成器。它生成独立 `project-instance`、独立 Git 仓库，并将项目根直接作为 Maven 工程根，包含 `server`、`core`、`client`、`repository`、`adapter`、`feign-client` 六模块；业务功能仍须回到 `yss-product-lifecycle` 与 `yss-router` 按垂直切片实现。
+
+生成器编排入口位于 `scripts/generate_project.mjs`，参数与环境解析、skillUtils 文件操作、项目治理封装和 Maven/Java 模板分别位于 `scripts/lib/`。初始化阶段只写入 staging 目录并在成功后原子重命名，不执行 Maven 或网络依赖下载。
 
 用户以“初始化新项目”进入时，由 `product-service-artifacts` 调用本生成器并默认附加 `docs/service/` 服务级研发产物；不要要求用户在提示词中另行说明“初始化产物”。未提供职责时生成 `skeleton`，不阻断工程创建。
 
@@ -23,18 +25,18 @@ description: 从空目录初始化独立 Git 管理的 YSS Java 8 数据分析 p
 先预演：
 
 ```bash
-node scripts/generate_project.mjs --project-name data-analysis-item1 --base-package com.yss.dataanalysis.item1 --target-dir /path/to/data-analysis-item1 --database oracle --with-mock --maven-settings /path/to/settings.xml --dry-run
+node scripts/generate_project.mjs --project-name mvc-analysis-item1 --base-package com.yss.dataanalysis.item1 --target-dir /path/to/mvc-analysis-item1 --database oracle --with-mock --maven-settings /path/to/settings.xml --dry-run
 ```
 
 确认目标目录后去掉 `--dry-run`。生成后运行：
 
 ```bash
-node scripts/verify_project.mjs --project-root /path/to/data-analysis-item1
-cd /path/to/data-analysis-item1
+node scripts/verify_project.mjs --project-root /path/to/mvc-analysis-item1
+cd /path/to/mvc-analysis-item1
 ./mvnw validate
 ./mvnw test
 ./mvnw package
-./mvnw spring-boot:run -pl data-analysis-item1-server -Dspring-boot.run.profiles=mock
+./mvnw spring-boot:run -pl mvc-analysis-item1-server -Dspring-boot.run.profiles=mock
 ```
 
 Windows 使用 `mvnw.cmd`。指定外部 settings 时，Maven 命令必须加 `-s <settings.xml>`。启动后对 `POST /api/analysis/query` 执行 HTTP 冒烟测试。
@@ -51,7 +53,7 @@ Windows 使用 `mvnw.cmd`。指定外部 settings 时，Maven 命令必须加 `-
 - 目标目录必须成为独立 Git 根；生成前必须能执行 `git --version`，生成后必须验证 Git 根等于 `target-dir`、分支为 `main`、commit 数为零且 remote 为空。
 - 生成前必须从 `git config --get user.name` 读取非空作者名；作者名包含换行或 `*/` 时拒绝生成。生成的 Controller 类和公开接口方法以该值填写 `@author`，不得固定为 `system`。
 - 项目根同时是 Maven 工程根和独立 Git 根，固定登记为 `repository_scope: external-repository`、`project_root: .`；六模块直接位于项目根目录。
-- 生成内容先写入同父目录 staging，全部步骤成功后再原子重命名；失败时只清理本次 staging，不留下不可重试的半成品。
+- 生成内容先写入同父目录 staging，全部步骤成功后再原子重命名；失败时只清理本次 staging，不留下不可重试的半成品。Maven 依赖解析明确延后到验证阶段；settings 缺失只记录 `maven-default` / `maven_settings_available=false`，不会压缩或截断生成的文件结构。
 - 每个项目持有自己的 `project-instance` 身份与业务资产；不得为了新项目改写模板工具仓库的项目名称或业务上下文。
 - 模块名固定使用正确拼写 `feign-client`；旧项目中的 `fegin-client` 只作为迁移来源，不继续传播。
 - Mock 与 Oracle 使用同一 Controller 和 DTO 契约，只替换 `AnalysisQueryExecutor` 实现。
