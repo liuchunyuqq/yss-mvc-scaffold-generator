@@ -43,7 +43,12 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   await readFile(path.join(backend, "server/src/main/java/com/yss/dataanalysis/item1/Application.java"), "utf8");
   const controllerTest = await readFile(path.join(backend, "server/src/test/java/com/yss/dataanalysis/item1/server/controller/AnalysisControllerTest.java"), "utf8");
   assert.match(controllerTest, /pageNo/);
-  assert.match(await readFile(path.join(target, "yss-project.yaml"), "utf8"), /repository_mode: project-instance/);
+  const projectIdentity = await readFile(path.join(target, "yss-project.yaml"), "utf8");
+  assert.match(projectIdentity, /repository_mode: project-instance/);
+  assert.match(projectIdentity, /governance_profile: docs\/process\/mvc-governance-profile\.yaml/);
+  assert.match(await readFile(path.join(target, "docs/process/mvc-governance-profile.yaml"), "utf8"), /runtime_scope: backend-only/);
+  assert.match(await readFile(path.join(target, "AGENTS.md"), "utf8"), /MVC 后端治理覆盖/);
+  assert.match(await readFile(path.join(target, "package.json"), "utf8"), /verify-governance/);
   assert.match(await readFile(path.join(target, "CONTEXT.md"), "utf8"), /AnalysisDataset/);
   assert.match(await readFile(path.join(target, ".artifact-workspace.yaml"), "utf8"), /kind: service/);
   assert.match(await readFile(path.join(target, "docs/service/module-map.md"), "utf8"), /feign-client/);
@@ -61,7 +66,7 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(await readFile(path.join(target, "docs/templates/implementation-routing-template.md"), "utf8"), /implementation/);
   assert.match(await readFile(path.join(target, "docs/templates/verification-record-template.md"), "utf8"), /verification/i);
   await readFile(path.join(skillUtils, ".agents/skills/yss-product-lifecycle/SKILL.md"), "utf8");
-  for (const projection of [".agents", ".claude", ".codex", ".cursor", ".hermes", ".pi", ".qoder", ".trae"]) {
+  for (const projection of [".agents", ".claude", ".codex", ".cursor", ".pi", ".qoder", ".trae"]) {
     await assert.rejects(stat(path.join(skillUtils, projection, "skills/yss-mvc-scaffold-generator")), { code: "ENOENT" });
   }
   assert.equal(path.resolve(spawnSync("git", ["-C", target, "rev-parse", "--show-toplevel"], { encoding: "utf8" }).stdout.trim()), path.resolve(target));

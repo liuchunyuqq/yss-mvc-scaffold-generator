@@ -11,14 +11,24 @@ function removeTemplateSourceCommands(content) {
 }
 
 export async function writeProjectEnvelope(o) {
-  await put(o.targetDir, "yss-project.yaml", "schema_version: 1\nrepository_mode: project-instance");
+  await put(o.targetDir, "yss-project.yaml", "schema_version: 1\nrepository_mode: project-instance\ngovernance_profile: docs/process/mvc-governance-profile.yaml");
   await put(o.targetDir, ".artifact-workspace.yaml", `schema_version: 1\nkind: service\nservice_id: ${o.projectName}\nowner: ${JSON.stringify(o.gitAuthor)}`);
   await cp(path.join(HARNESS_ROOT, "AGENTS.md"), path.join(o.targetDir, "AGENTS.md"));
   const generatedAgents = await readFile(path.join(o.targetDir, "AGENTS.md"), "utf8");
-  await writeFile(path.join(o.targetDir, "AGENTS.md"), generatedAgents
+  await writeFile(path.join(o.targetDir, "AGENTS.md"), `${generatedAgents
     .replaceAll(".agents/skills", "../skillUtils/.agents/skills")
     .replaceAll(".codex/skills", "../skillUtils/.codex/skills")
-    .replace("- 模板维护默认以 `scripts/verify-template-fast` 完成 `implementation-ready`；显式晋级审查时用 `scripts/verify-template-candidate`，首次冻结前和最终发布前仍必须执行完整 `scripts/verify-template`。后者是不可裁剪的模板发布阻断门禁。模板与外部 `create-yss-spec` 的跨仓库契约未完成集成验证时，不得声称可发布。", "- 模板发布门禁只在上游 Harness 模板源执行；当前项目实例不分发或运行模板验证命令。"), "utf8");
+    .replace("- 模板维护默认以 `scripts/verify-template-fast` 完成 `implementation-ready`；显式晋级审查时用 `scripts/verify-template-candidate`，首次冻结前和最终发布前仍必须执行完整 `scripts/verify-template`。后者是不可裁剪的模板发布阻断门禁。模板与外部 `create-yss-spec` 的跨仓库契约未完成集成验证时，不得声称可发布。", "- 模板发布门禁只在上游 Harness 模板源执行；当前项目实例不分发或运行模板验证命令。")}
+
+## MVC 后端治理覆盖
+
+本项目的权威架构裁剪位于 \`yss-project.yaml\` 指向的 \`docs/process/mvc-governance-profile.yaml\`，优先于通用生命周期说明中的 DDD 和前端专属要求。
+
+- 当前项目只交付 Java MVC 后端六模块；\`yss-domain\`、DDD 战术设计、原型设计和前端实现验证均为 \`not-applicable\`，不得生成空产物。
+- 前端实现必须位于另行登记的前端仓库；未登记时不生成前端代码、页面、前端验证或前端 Ticket。
+- 生命周期注册表 Markdown 投影是可选阅读视图；功能实现不以投影同步为前置条件。只有变更注册表本身时才更新其派生视图。
+- 实现前执行 \`npm run check-agent-environment\` 与 \`npm run verify-governance\`；随后按已批准的后端实现合同选择 \`yss-web-controller\`、\`yss-application\`、\`yss-repository\`、\`yss-mybatis\`、\`yss-dto\`、\`yss-exception\`。
+`, "utf8");
   await put(o.targetDir, "CONTEXT.md", "# 领域上下文\n\n## 业务术语\n\n| 术语 | 定义 | 英文标识 | 避免 / 备注 |\n|---|---|---|---|\n| 分析数据集 | 支撑一个数据分析功能的表结构、字段语义和查询边界。 | AnalysisDataset | 具体业务术语在需求分析后补充 |\n| 分析结果 | 数据分析接口返回的分页明细或聚合结果。 | AnalysisResult | 不表示未经约束的原始结果集 |");
   for (const relative of ["docs/agents", "docs/process", "docs/templates", "docs/architecture/templates"]) {
     const source = path.join(HARNESS_ROOT, relative);
@@ -54,7 +64,7 @@ export async function writeProjectEnvelope(o) {
     if (await exists(source)) await cp(source, path.join(o.targetDir, relative));
   }
   await put(o.targetDir, "skills-lock.json", JSON.stringify({ version: 1, distribution: { mode: "sibling-directory", skillUtilsDir: "../skillUtils", required: true, compatibility: "skill-utils-v1", requiredToolVersion: "1.0.0" }, skills: { source: "../skillUtils/skills-lock.json", validation: "scripts/check-agent-environment.mjs" } }, null, 2));
-  await put(o.targetDir, "package.json", JSON.stringify({ name: o.projectName, private: true, scripts: { "check-agent-environment": "node scripts/check-agent-environment.mjs", "verify-project": "node scripts/verify-lifecycle-registry", "verify-dto": "node scripts/verify-yss-dto-openapi-profile" } }, null, 2));
+  await put(o.targetDir, "package.json", JSON.stringify({ name: o.projectName, private: true, scripts: { "check-agent-environment": "node scripts/check-agent-environment.mjs", "verify-governance": "node scripts/verify-mvc-governance-profile.mjs", "verify-project": "node scripts/verify-lifecycle-registry", "verify-dto": "node scripts/verify-yss-dto-openapi-profile" } }, null, 2));
   await put(o.targetDir, "docs/process/analysis-project.yaml", `project_name: ${o.projectName}\nproject_type: data-analysis\nrepository_scope: external-repository\nimplementation_root: .\nruntime_java: 8\npersistence_profile: yss-mybatis-plus\nid_strategy: ASSIGN_ID\ndatabase:\n  type: ${o.database}\n  runtime_connection: true\n  metadata_contract: docs/data-model\nquery:\n  sql_mode: readonly\n  allowed_statement_types: [select, with]\n  parameter_binding_required: true\nmodules:\n${MODULES.map((module) => `  - ${module}`).join("\n")}\nworkflow:\n  - requirement-and-data-contract\n  - specification-freeze\n  - vertical-slice-implementation\n  - automated-gates\n  - single-release-confirmation\n  - runtime-monitoring`);
   await put(o.targetDir, "docs/process/implementation-repo-registry.yaml", `schema_version: 1\nprojects:\n  - project_type: backend\n    project_name: ${o.projectName}\n    project_root: .\n    git_root: .\n    repository_scope: external-repository\n    scaffold_status: initialized\n    default_branch: main\n    allowed_write_paths:\n      - .\n    verification_commands:\n      - mvnw com.coveo:fmt-maven-plugin:2.9.1:check\n      - mvnw validate\n      - mvnw test\n      - mvnw package\n    expected_evidence_files:\n      - docs/.scratch/<feature>/verification/yss-skill-execution-result.yaml\n      - docs/.scratch/<feature>/verification/fresh-verification.md\n    ci: not-configured\n    rollback_point: initial-empty-repository`);
   await put(o.targetDir, "docs/.scratch/.gitkeep", "# Local lifecycle artifacts are created in feature subdirectories.");
