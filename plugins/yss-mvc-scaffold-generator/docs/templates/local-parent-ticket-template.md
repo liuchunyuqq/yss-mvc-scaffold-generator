@@ -10,7 +10,6 @@ pending_publication_to: "<none | github | gitlab>"
 默认 Local Markdown 填写 `tracker: local-markdown`、`publication: local`、`pending_publication_to: none`；若选定的远程平台不可用，填写目标平台、`publication: pending` 和对应的 `pending_publication_to`。
 
 Status: ready-for-human
-Delivery-State: planned
 
 > Local Markdown 主 tracker 的功能父 Ticket。文件位置固定为 `docs/.scratch/<feature>/parent-ticket.md`。
 > 若明确选择的 GitHub / GitLab 暂不可用，将 `tracker` 改为目标平台、`publication` 改为 `pending`，并填写 `pending_publication_to`；不得改投另一平台。
@@ -34,7 +33,6 @@ Delivery-State: planned
 | stage | `<current-stage>` |
 | lifecycle_status | routing / running / paused-human-gate / blocked / completed |
 | ticket_role | needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix |
-| delivery_state | planned / in-progress / implemented / verified / released |
 | gate_summary | `<approved / blocked / not-applicable summary>` |
 
 ## 资产与证据
@@ -46,10 +44,15 @@ Delivery-State: planned
 - Architecture：`docs/.scratch/<feature>/architecture/`
 - Gates：`docs/.scratch/<feature>/gates/`
 - Verification：`docs/.scratch/<feature>/verification/`
-- Reviews：`docs/.scratch/<feature>/reviews/`（实现候选存在后必需）
-- Releases：`docs/.scratch/<feature>/releases/`（实际发布时必需）
-- Retrospective：`docs/.scratch/<feature>/retrospective.md`（命中复盘触发时必需）
 - Vertical slices：`docs/.scratch/<feature>/issues/`
+
+## 会签
+
+会签记录写在 `docs/.scratch/<feature>/gates/<gate-id>-approval.yaml`。会签桶内门禁标为 `approved` 前必须通过 `scripts/verify-approval-record`。
+
+| 门禁 | 记录路径 | 会签角色 | 状态 |
+|---|---|---|---|
+|  | `docs/.scratch/<feature>/gates/<gate-id>-approval.yaml` | 见 `docs/agents/digital-human-roles.yaml` | pending / approved / blocked / not-applicable |
 
 ## 阻塞关系
 

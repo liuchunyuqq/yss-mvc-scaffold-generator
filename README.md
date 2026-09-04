@@ -19,3 +19,18 @@ codex plugin add yss-mvc-scaffold-generator@personal
 ```
 
 插件会先执行 dry-run；确认参数和空目标目录后再正式生成。生成器不会覆盖或删除非空目录，不会写入真实凭据，也不会自动创建 commit 或 remote。初始化不执行 Maven 或下载依赖，settings 缺失时仍会完整生成，依赖解析延后到后续验证。
+
+## 插件源与更新
+
+插件中的 `yss-mvc-scaffold-generator` Skill 以
+`C:\project_self\localskill\yss-spec-project-template\.agents\skills\yss-mvc-scaffold-generator`
+为唯一初始化和更新来源，来源合同记录在 `source.json`。
+
+更新插件前运行：
+
+```powershell
+.\scripts\sync-from-source.ps1
+.\scripts\sync-from-source.ps1 -Check
+```
+
+同步脚本会先确认源仓库为 `template-source`，再复制 canonical Skill，并在 `-Check` 模式下按 SHA-256 校验文件集合和内容。不要直接维护插件内的 Skill 副本。

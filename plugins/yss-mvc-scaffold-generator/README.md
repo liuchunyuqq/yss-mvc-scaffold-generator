@@ -26,7 +26,7 @@ Skill 会先执行 dry-run。确认目标目录为空且参数正确后，再执
 
 ## 发布与升级
 
-插件源代码位于本仓库的 `plugins/yss-mvc-scaffold-generator`，marketplace 索引位于 `.agents/plugins/marketplace.json`。发布新版本时同步更新 `.codex-plugin/plugin.json` 的 `version`，提交并推送后，成员执行：
+插件源代码位于本仓库的 `plugins/yss-mvc-scaffold-generator`，marketplace 索引位于 `.agents/plugins/marketplace.json`。其中 `yss-mvc-scaffold-generator` Skill 必须通过仓库根 `scripts/sync-from-source.ps1` 从 `source.json` 声明的模板源同步，不直接维护插件内副本。发布新版本时同步更新 `.codex-plugin/plugin.json` 的 `version`，提交并推送后，成员执行：
 
 ```bash
 codex plugin marketplace upgrade personal

@@ -5,7 +5,6 @@ status: ready-for-human
 # 垂直切片 Ticket：<标题>
 
 Status: ready-for-human
-Delivery-State: planned
 
 ## 父级
 
@@ -54,6 +53,7 @@ Delivery-State: planned
 | contract_ref |  |
 | Router 状态 | draft / blocked / ready-for-lifecycle-review |
 | 生命周期批准状态 | pending / approved / rejected |
+| suggested_owner_role_id | `role.frontend-engineer` / `role.backend-engineer` / `role.test-engineer`（Router 建议，编排器派活） |
 | Build Architecture Checklist |  |
 
 > Router 不得自行将合同批准或将本 Ticket 推进为 `ready-for-agent`。只有生命周期编排器核验并持久化当前版本合同、清除阻塞边后，才能推进状态。
@@ -108,6 +108,12 @@ Delivery-State: planned
 
 出现 `drift`、`violation` 或非空 `new_impacts` 时暂停受影响工作单元，不得先完成代码再补合同；更新合同版本并通过生命周期审查后才能恢复。
 
+## 会签
+
+| 门禁 | 记录路径 | 会签角色 | 状态 |
+|---|---|---|---|
+|  | `docs/.scratch/<feature>/gates/<gate-id>-approval.yaml` | 见 `docs/agents/digital-human-roles.yaml` | pending / approved / blocked / not-applicable |
+
 ## 状态
 
 `ready-for-agent`
@@ -121,8 +127,6 @@ Delivery-State: planned
 - [ ] 公共基础库 API：记录验证证据
 
 ## 完成定义
-
-> `Status` 是 Ticket 协作角色；`Delivery-State` 是交付进度。实现完成后保留合法的 Matt 五态，并将 `Delivery-State` 依次更新为 `implemented`、`verified`、`released`。
 
 - [ ] 如有需要，已基于冻结 OpenAPI Spec 拆分切片
 - [ ] 实现完成
