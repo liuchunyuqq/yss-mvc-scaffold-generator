@@ -1,7 +1,7 @@
 {
   "name": "yss-mvc-scaffold-generator",
   "version": "1.1.1",
-  "description": "Initialize a YSS Java 8 MVC data-analysis project with a modular six-module Maven scaffold, governance assets, and Oracle or OceanBase Oracle profiles.",
+  "description": "Create YSS Java 8 MVC backend projects and restore their external MVC skillUtils environment.",
   "author": {
     "name": "liuchunyuqq",
     "email": "liuchunyu1@ysstech.com",
@@ -20,7 +20,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "YSS MVC Scaffold Generator",
-    "shortDescription": "Initialize a governed YSS Java data-analysis project.",
+    "shortDescription": "创建 MVC 后端项目或恢复克隆项目的配套环境。",
     "longDescription": "Create an independent YSS Java 8 MVC data-analysis project with six Maven modules, Oracle or OceanBase Oracle configuration, optional Mock execution, lifecycle documents, shared skills, and verification seams. Initialization is atomic and never downloads Maven dependencies; dependency resolution is deferred to explicit verification.",
     "developerName": "liuchunyuqq",
     "category": "Developer Tools",
@@ -32,7 +32,8 @@
     "defaultPrompt": [
       "初始化一个 YSS Oracle 数据分析项目",
       "用 Mock 模式创建数据分析项目骨架",
-      "检查 YSS 数据分析项目初始化参数"
+      "检查 YSS 数据分析项目初始化参数",
+      "为已克隆的 MVC 后端项目恢复相邻 skillUtils"
     ]
   }
 }

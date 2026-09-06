@@ -1,6 +1,6 @@
 ---
 name: yss-mvc-scaffold-generator
-description: 从空目录初始化独立 Git 管理的 YSS Java 8 MVC 数据分析 project-instance，生成固定六模块、YSS 标准组件、Oracle/OceanBase Oracle 与 Mock HTTP API；不用于通用 DDD 服务。
+description: 从空目录初始化或为已克隆 MVC 项目恢复外置 skillUtils；生成独立 Git 管理的 YSS Java 8 MVC 数据分析 project-instance，生成固定六模块、YSS 标准组件、Oracle/OceanBase Oracle 与 Mock HTTP API；不用于通用 DDD 服务。
 ---
 
 # YSS MVC Scaffold Generator
@@ -10,6 +10,14 @@ description: 从空目录初始化独立 Git 管理的 YSS Java 8 MVC 数据分�
 生成器编排入口位于 `scripts/generate_project.mjs`，参数与环境解析、skillUtils 文件操作、项目治理封装和 Maven/Java 模板分别位于 `scripts/lib/`。初始化阶段只写入 staging 目录并在成功后原子重命名，不执行 Maven 或网络依赖下载。
 
 用户以“初始化新项目”进入时，由 `product-service-artifacts` 调用本生成器并默认附加 `docs/service/` 服务级研发产物；不要要求用户在提示词中另行说明“初始化产物”。未提供职责时生成 `skeleton`，不阻断工程创建。
+
+## 已有 MVC 项目恢复环境
+
+团队 clone 项目后缺少相邻 skillUtils 时，运行本 skill 的 `node scripts/restore_environment.mjs --project-root <项目根> --dry-run`，核对计划后去掉 `--dry-run`。`--check` 只比较发行资产与已安装环境；`--upgrade` 显式更新并保留旧目录备份。新建与恢复使用同一 MVC 环境生成函数。
+
+恢复不生成 Java/POM、不初始化 Git、不重写项目治理和业务资产。只接受合法 project-instance、MVC 后端 Profile 和相邻目录合同。早期项目无 governance_profile 时只接受完整 MVC 生成清单的明确来源证据，使用外部环境中的 MVC Profile 副本；缺少这些证据或旧 skillUtils 无完整性基线时报告 migration-required；保留原目录，可在另一工作目录恢复。禁止推测身份或覆盖未受管目录。
+
+MVC 技能选择与平台投影见 [环境生成清单](references/mvc-environment-manifest.json)，架构专属适配源位于 assets/mvc-skills；DDD 基座技能保持原样。输出 FILES_READY 只证明文件检查，实际 Agent 发现另行验证。团队不在外部生成副本中维护 skills。
 
 ## 输入
 
@@ -84,4 +92,8 @@ Windows 使用 `mvnw.cmd`。指定外部 settings 时，Maven 命令必须加 `-
 - 冻结的 OpenAPI 3.1 YAML 是接口契约的唯一事实来源；`yss-openapi-governance` 负责契约治理与 Freeze，`yss-openapi-draft-review` 负责冻结前审查，`yss-web-controller` 负责按冻结契约实现 Controller。
 - Smart-doc 是人工可选的源码文档工具。其输出只用于查看当前 Controller 实现，不得反向定义、覆盖或批准冻结 OpenAPI。
 - AI 默认不执行 `smart-doc:html`、`smart-doc:openapi` 或 `smart-doc:torna-rest`。`torna-rest` 涉及外部写入，执行前还必须获得对应授权。
-- 本生成器只用于空目录初始化。生成项目使用已物化的 `project-instance` 资产和实现 skills 开发后续需求；其共享 `skillUtils` 不应再分发 `yss-mvc-scaffold-generator` 本身。
+- 工程生成入口只用于空目录初始化；环境恢复入口允许已有非空 MVC 项目。生成项目使用已物化的 `project-instance` 资产和实现 skills 开发后续需求；其共享 `skillUtils` 不应再分发 `yss-mvc-scaffold-generator` 本身。
+
+## 维护验证
+
+修改后执行 `node --test scripts/generate_project.test.mjs scripts/restore_environment.test.mjs`。插件同步后执行 `node scripts/verify_plugin_integration.mjs <插件根>`，验证脱离基座的工程生成、真实 Git clone 后恢复、工作树不变与同步漂移检测；该命令只在临时目录创建测试 Git commit，不提交用户仓库。

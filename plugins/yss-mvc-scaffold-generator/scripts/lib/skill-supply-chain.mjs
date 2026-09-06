@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,8 +7,9 @@ import { fileURLToPath } from "node:url";
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SOURCE_ROOT = path.join(ROOT, ".agents/skills");
 const LOCK_PATH = path.join(ROOT, "skills-lock.json");
-export const PROJECTION_ROOTS = [".claude/skills", ".codex/skills", ".cursor/skills", ".hermes/skills", ".pi/skills", ".qoder/skills", ".trae/skills"];
-export const OBSOLETE = new Set(["to-" + "prd", "to-" + "issues", "design-an-interface", "qa", "request-refactor-plan", "ubiquitous-language", "edit-article", "obsidian-vault", "writing-great-skills", "code-review-process", "yss-domain-modeling", "yss-dir", "yss-duckdb", "yss-file", "yss-filerunner", "yss-db2mybatis", "yss-mail", "yss-mapper-dynamic", "yss-quality", "yss-sql-condition", "yss-sql-tpl", "yss-valuation", "yss-variable", "yss-openapi", "web-design-engineer", "web-video-presentation", "wireframe-prototype", "wizard", "git-guardrails-claude-code", "claude-handoff", "batch-grill-me", "product-design-prototype", "yss-dictionary", "yss-jdbc", "yss-log", "yss-taskflow", "yss-backend-scaffold-application", "yss-backend-scaffold-domain", "yss-backend-scaffold-infrastructure", "yss-backend-scaffold-web"]);
+const YSS_UI_MANIFEST_PATH = path.join(SOURCE_ROOT, ".yss-skills-manifest.json");
+export const PROJECTION_ROOTS = [".claude/skills", ".codex/skills", ".cursor/skills", ".pi/skills", ".qoder/skills", ".trae/skills"];
+export const OBSOLETE = new Set(["to-" + "prd", "to-" + "issues", "design-an-interface", "qa", "request-refactor-plan", "ubiquitous-language", "edit-article", "obsidian-vault", "writing-great-skills", "code-review-process", "yss-domain-modeling", "yss-dir", "yss-duckdb", "yss-file", "yss-filerunner", "yss-db2mybatis", "yss-mail", "yss-mapper-dynamic", "yss-quality", "yss-sql-condition", "yss-sql-tpl", "yss-valuation", "yss-variable", "yss-openapi", "web-design-engineer", "web-video-presentation", "wireframe-prototype", "wizard", "git-guardrails-claude-code", "claude-handoff", "batch-grill-me", "product-design-prototype", "research", "yss-dictionary", "yss-jdbc", "yss-log", "yss-taskflow", "yss-backend-scaffold-application", "yss-backend-scaffold-domain", "yss-backend-scaffold-infrastructure", "yss-backend-scaffold-web", "yss-router", "yss-source-index"]);
 export function obsoleteCanonicalResidues(names, obsolete = OBSOLETE) {
   return names.filter((name) => obsolete.has(name)).sort();
 }
@@ -22,16 +23,73 @@ function treeFiles(directory, prefix = "") {
     const absolute = path.join(directory, entry.name);
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) return treeFiles(absolute, rel);
-    if (rel.split("/").includes("__pycache__") || /\.(pyc|pyo)$/.test(rel)) return [];
+    if (rel.split("/").includes("__pycache__") || /\.(iml|pyc|pyo)$/.test(rel)) return [];
     return entry.isFile() || entry.isSymbolicLink() ? [[rel, absolute]] : [];
   });
 }
 export function treeHash(directory) {
   const digest = createHash("sha256");
   for (const [name, file] of treeFiles(directory).sort(([left], [right]) => left.localeCompare(right))) {
-    digest.update(name).update("\0").update(readFileSync(file)).update("\0");
+    const content = readFileSync(file);
+    const normalized = content.includes(0) ? content : Buffer.from(content.toString("utf8").replaceAll("\r\n", "\n"));
+    digest.update(name).update("\0").update(normalized).update("\0");
   }
   return digest.digest("hex");
+}
+
+/**
+ * 校验并返回 YSS UI 前端 skills 与 MCP 的上游集成合同。
+ *
+ * @param {unknown} manifest 待校验的清单对象
+ * @returns {Record<string, any>} 已校验的清单
+ */
+export function validateYssUiSkillManifest(manifest) {
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) throw new TypeError("yss-ui 清单必须是对象");
+  const requiredStrings = ["source", "source_type", "source_root", "source_category", "source_revision", "adaptation_ref"];
+  for (const field of requiredStrings) {
+    if (typeof manifest[field] !== "string" || !manifest[field].trim()) throw new TypeError(`yss-ui 清单缺少 ${field}`);
+  }
+  if (manifest.schema_version !== 2) throw new TypeError("yss-ui 清单 schema_version 必须为 2");
+  if (!/^[0-9a-f]{40}$/.test(manifest.source_revision)) throw new TypeError("yss-ui source_revision 必须是完整 Git SHA");
+  if (!manifest.package || typeof manifest.package.name !== "string" || typeof manifest.package.version !== "string") {
+    throw new TypeError("yss-ui 清单缺少 package name/version");
+  }
+  if (!Array.isArray(manifest.excluded_categories) || manifest.excluded_categories.some((item) => typeof item !== "string" || !item)) {
+    throw new TypeError("yss-ui 清单缺少有效 excluded_categories");
+  }
+  if (!Array.isArray(manifest.excluded_skills) || manifest.excluded_skills.some((item) => typeof item !== "string" || !item)) {
+    throw new TypeError("yss-ui 清单缺少有效 excluded_skills");
+  }
+  if (!Array.isArray(manifest.skills) || !manifest.skills.length) throw new TypeError("yss-ui 清单缺少 skills");
+  const upstreamNames = new Set();
+  const canonicalNames = new Set();
+  for (const skill of manifest.skills) {
+    if (!skill || typeof skill.upstream !== "string" || typeof skill.canonical !== "string") throw new TypeError("yss-ui skill 缺少 upstream/canonical");
+    if (skill.upstream === "java-backend-commit") throw new TypeError("yss-ui 前端清单不得包含 java-backend-commit");
+    if (manifest.excluded_skills.includes(skill.upstream)) throw new TypeError(`yss-ui 清单包含已排除 skill: ${skill.upstream}`);
+    if (upstreamNames.has(skill.upstream)) throw new TypeError(`upstream 重复: ${skill.upstream}`);
+    if (canonicalNames.has(skill.canonical)) throw new TypeError(`canonical 重复: ${skill.canonical}`);
+    if (!/^[0-9a-f]{64}$/.test(skill.upstream_hash ?? "")) throw new TypeError(`${skill.canonical} 缺少有效 upstream_hash`);
+    upstreamNames.add(skill.upstream);
+    canonicalNames.add(skill.canonical);
+  }
+  const mcp = manifest.mcp;
+  if (!mcp || typeof mcp.package !== "string" || typeof mcp.version !== "string" || typeof mcp.components_version !== "string" || typeof mcp.server_name !== "string") {
+    throw new TypeError("yss-ui 清单缺少 MCP package/version/server 信息");
+  }
+  if (!Array.isArray(mcp.project_configs) || !mcp.project_configs.length) throw new TypeError("yss-ui 清单缺少 MCP project_configs");
+  const configPaths = new Set();
+  for (const config of mcp.project_configs) {
+    if (!config || typeof config.path !== "string" || !["mcpServers", "servers"].includes(config.container)) throw new TypeError("yss-ui MCP project_config 无效");
+    if (configPaths.has(config.path)) throw new TypeError(`yss-ui MCP config path 重复: ${config.path}`);
+    configPaths.add(config.path);
+  }
+  if (typeof mcp.global_install_guide !== "string" || !mcp.global_install_guide) throw new TypeError("yss-ui MCP 缺少 global_install_guide");
+  return manifest;
+}
+
+function loadYssUiSkillManifest() {
+  return validateYssUiSkillManifest(JSON.parse(readFileSync(YSS_UI_MANIFEST_PATH, "utf8")));
 }
 function git(args) { return spawnSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); }
 function tracked(relativePath) { return git(["ls-files", "-z", "--", relativePath]).stdout.length > 0; }
@@ -78,31 +136,20 @@ export function syncSkills({ check = false } = {}) {
       if (check) {
         if (info?.isSymbolicLink()) {
           if (!existsSync(target) || realpathSync(target) !== realpathSync(source)) drift.push(`projection target mismatch: ${relative(target)}`);
-        } else if (info?.isFile()) {
-          if (pointerTarget(target, projection) !== source) drift.push(`projection pointer mismatch: ${relative(target)}`);
         } else if (!info?.isDirectory()) drift.push(`missing projection: ${relative(target)}`);
         else if (treeHash(source) !== treeHash(target)) drift.push(`projection drift: ${relative(target)}`);
       } else if (info?.isSymbolicLink() && existsSync(target) && realpathSync(target) === realpathSync(source)) {
         continue;
-      } else if (info?.isFile() && pointerTarget(target, projection) === source) {
-        continue;
       } else {
         rmSync(target, { recursive: true, force: true });
-        if (process.platform === "win32") {
-          writeFileSync(target, path.relative(projection, source).replaceAll(path.sep, "/"));
-        } else if (!info || !tracked(relative(target))) {
-          try {
-            symlinkSync(path.relative(projection, source), target, "dir");
-          } catch (error) {
-            if (!["EPERM", "EACCES"].includes(error.code)) throw error;
-            cpSync(source, target, { recursive: true, preserveTimestamps: true });
-          }
-        } else cpSync(source, target, { recursive: true, preserveTimestamps: true });
+        if (!info || !tracked(relative(target))) symlinkSync(path.relative(projection, source), target, "dir");
+        else cpSync(source, target, { recursive: true, preserveTimestamps: true });
       }
     }
     for (const name of OBSOLETE) {
       const target = path.join(projection, name);
       if (check) { if (existsSync(target) || lstatSafe(target)?.isSymbolicLink()) drift.push(`obsolete projection: ${relative(target)}`); }
+      else if (lstatSafe(target)?.isSymbolicLink()) unlinkSync(target);
       else rmSync(target, { recursive: true, force: true });
     }
   }
@@ -110,12 +157,6 @@ export function syncSkills({ check = false } = {}) {
   return check ? "skill projections are synchronized" : `synchronized ${shared.length} shared skills`;
 }
 function lstatSafe(target) { try { return lstatSync(target); } catch (error) { if (error.code === "ENOENT") return null; throw error; } }
-function pointerTarget(file, projection) {
-  try {
-    const value = readFileSync(file, "utf8").trim();
-    return value && !value.includes("\n") ? path.resolve(projection, value) : null;
-  } catch { return null; }
-}
 function priorMetadata(lock) {
   const skills = lock?.skills ?? {};
   if (!["shared", "platform"].some((key) => key in skills)) return skills;
@@ -140,7 +181,7 @@ function sourceRevisionMap(oldLock, arguments_) {
 function metadata(name, skillPath, directory, previous, canonical = false, sources = {}, upstreamRoot = null) {
   const old = previous[name] ?? {};
   let recordedPath = old.skillPath ?? skillPath;
-  if (canonical && /^\.(claude|codex|cursor|hermes|pi|qoder|trae)\/skills\//.test(recordedPath)) recordedPath = skillPath;
+  if (canonical && /^\.(claude|codex|cursor|pi|qoder|trae)\/skills\//.test(recordedPath)) recordedPath = skillPath;
   const result = { source: old.source ?? "project", sourceType: old.sourceType ?? "local", skillPath: recordedPath, effectiveHash: treeHash(directory) };
   const sourceInfo = sources[result.source];
   if (sourceInfo?.revision) result.sourceRevision = sourceInfo.revision;
@@ -150,11 +191,17 @@ function metadata(name, skillPath, directory, previous, canonical = false, sourc
     if (!existsSync(upstreamDirectory)) throw new TypeError(`${name} 的上游路径不存在: ${recordedPath}`);
     result.upstreamHash = treeHash(upstreamDirectory);
   } else if (old.upstreamHash ?? old.computedHash) result.upstreamHash = old.upstreamHash ?? old.computedHash;
-  if (result.source === "mattpocock/skills" && result.upstreamHash && result.effectiveHash !== result.upstreamHash) result.adaptationRef = "docs/process/MATT-POCOCK-ENGINEERING-SKILLS.md";
+  if (result.upstreamHash && result.effectiveHash !== result.upstreamHash) {
+    const adaptationRef = old.adaptationRef ?? (result.source === "mattpocock/skills" ? "docs/process/MATT-POCOCK-ENGINEERING-SKILLS.md" : null);
+    if (adaptationRef) result.adaptationRef = adaptationRef;
+  }
   return result;
 }
 export function updateSkillLock(arguments_ = process.argv.slice(2)) {
   const oldLock = parseLock(); const previous = priorMetadata(oldLock); const sources = sourceRevisionMap(oldLock, arguments_); const upstreamRoot = option(arguments_, "upstream-root");
+  const yssUiManifest = loadYssUiSkillManifest();
+  sources[yssUiManifest.source] = { ...(sources[yssUiManifest.source] ?? {}), revision: yssUiManifest.source_revision };
+  const yssUiSkills = new Map(yssUiManifest.skills.map((skill) => [skill.canonical, skill]));
   if (upstreamRoot && !existsSync(upstreamRoot)) throw new TypeError(`--upstream-root 不存在: ${upstreamRoot}`);
   const additions = arguments_.filter((arg) => arg.startsWith("--add=")).map((arg) => arg.slice(6));
   const removals = new Set(arguments_.filter((arg) => arg.startsWith("--remove=")).map((arg) => arg.slice(9)));
@@ -167,7 +214,19 @@ export function updateSkillLock(arguments_ = process.argv.slice(2)) {
   if (unlocked.length) throw new TypeError(`发现未登记到 skills-lock.json 的已跟踪共享 skills: ${unlocked.join(", ")}\n确认新增后运行 scripts/update-skill-lock --add=<skill-name>`);
   const targets = [".agents/skills", ...PROJECTION_ROOTS];
   const shared = Object.fromEntries(sharedNames.map((name) => {
-    const item = metadata(name, `.agents/skills/${name}/SKILL.md`, path.join(SOURCE_ROOT, name), previous, true, sources, upstreamRoot); item.targets = targets; return [name, item];
+    const item = metadata(name, `.agents/skills/${name}/SKILL.md`, path.join(SOURCE_ROOT, name), previous, true, sources, upstreamRoot);
+    const yssUiSkill = yssUiSkills.get(name);
+    if (yssUiSkill) {
+      item.source = yssUiManifest.source;
+      item.sourceType = yssUiManifest.source_type;
+      item.skillPath = `${yssUiManifest.source_root}/${yssUiSkill.upstream}/SKILL.md`;
+      item.sourceRevision = yssUiManifest.source_revision;
+      item.upstreamHash = yssUiSkill.upstream_hash;
+      if (item.effectiveHash !== item.upstreamHash) item.adaptationRef = yssUiManifest.adaptation_ref;
+      else delete item.adaptationRef;
+    }
+    item.targets = targets;
+    return [name, item];
   }));
   const platform = {};
   for (const root of PROJECTION_ROOTS) {

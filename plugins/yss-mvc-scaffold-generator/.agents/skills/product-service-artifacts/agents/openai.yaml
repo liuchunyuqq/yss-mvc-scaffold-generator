@@ -1,4 +1,0 @@
-interface:
-  display_name: Service Development Artifacts
-  short_description: 初始化单个微服务的长期与功能产物
-  default_prompt: 创建或接入一个独立微服务，同时初始化服务长期产物；这是工程启动，不要先要求功能 Spec 或 OpenAPI Freeze。

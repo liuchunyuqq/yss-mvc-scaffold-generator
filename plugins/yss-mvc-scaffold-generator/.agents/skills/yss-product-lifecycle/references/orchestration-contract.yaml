@@ -100,6 +100,71 @@ workflow_execution_result:
   workflow_reference:
     required: [source, skill, invocation_mode]
     allowed_sources: [yss-product-lifecycle, mattpocock/skills]
+  next_route:
+    validator: scripts/lib/lifecycle-transition.mjs
+    function: validateNextRoute
+    implementation_predecessor: work-unit.ticket-decomposition
+    null_allowed_when: [blocked, needs-human, failed, terminal_completed]
+  work_unit_requirements:
+    work-unit.ticket-decomposition:
+      completed_requires: [vertical_slice_ticket_ref, ticket_decomposition_result_ref]
+    work-unit.slice-implementation:
+      required: [predecessor_work_unit, ticket_decomposition_result_ref, ticket_decomposition_result_status, vertical_slice_ticket_ref, vertical_slice_ticket_role, vertical_slice_ticket_kind, slice_contract_ticket_ref, slice_contract_status]
+      boolean_required: [ready_for_agent, slice_contract_persisted, slice_contract_current_version]
+      validator: scripts/lib/lifecycle-transition.mjs
+      function: validateImplementationEntry
+
+task_package:
+  schema_version: 1
+  applies_to: all-formal-digital-human-dispatches
+  schema_ref: docs/process/schemas/digital-human-task-package.schema.json
+  compatibility_schema_ref: docs/process/schemas/subagent-task-package.schema.json
+  validator: scripts/verify-digital-human-task-package
+  compatibility_validator: scripts/verify-subagent-task-package
+  persistence_layout: docs/.scratch/<feature>/task-packages/<task-id>.yaml
+  required: [schema_version, task_id, work_unit_id, actor_id, role_id, runtime_id, execution_state, workflow_status, skill_source, contract, inputs, objective, allowed_write_paths, forbidden_actions, expected_outputs, expected_evidence_files, verification_commands, verification_results, downstream_consumers, convergence]
+  execution_states: [Explorer, Drafter, Worker, Reviewer, Verifier]
+  workflow_statuses: [not-started, active, paused, resolved, failed]
+  skill_source:
+    registry_ref: docs/agents/digital-human-roles.yaml
+    defaults: taskPackageDefaults(role_id)
+    copy_required: [core_skills, forbidden_skills]
+  contract:
+    kinds: [lifecycle-work-unit, slice-implementation, template-maintenance]
+    required: [kind, contract_id, contract_version, status, contract_ref]
+    status_at_dispatch: issued
+    status_after_change: [stale, blocked]
+    lifecycle-work-unit:
+      required: [lifecycle_ref]
+      forbidden: [slice_contract_ref, maintenance_ref]
+      template_source_work_unit: forbidden
+    slice-implementation:
+      required: [slice_contract_ref]
+      must_match_current_slice_contract: true
+      version_mismatch: blocked
+      stage: stage.vertical-slice-implementation
+      parent_work_unit: work-unit.slice-implementation
+      work_unit_must_be_declared_in_slice_contract: true
+    template-maintenance:
+      required: [maintenance_ref]
+      forbidden: [slice_contract_ref, lifecycle_ref]
+  dispatch:
+    owner: role.lifecycle-orchestrator
+    mode: orchestrator-one-to-one
+    per_feature_instances: forbidden
+  write_isolation:
+    policy: task-package-policy
+    changed_files_must_be_within_allowed_paths: true
+    shared_workspace_is_not_security_boundary: true
+  downstream:
+    formal_channel: [task_package_ref, contract_ref, evidence_refs, workflow_execution_result]
+    direct_chat_is_not_formal_evidence: true
+  stale:
+    owner: yss-product-lifecycle
+    on_contract_change: [mark_downstream_stale, remove_ready-for-agent, reroute]
+  compatibility:
+    legacy_results: read-only-normalize
+    schema_version: 1
 
 # Matt user-invoked skills remain explicit user entry points. Lifecycle work units
 # may prepare, validate and accept their results, but cannot invoke them or create
@@ -107,8 +172,8 @@ workflow_execution_result:
 matt_invocation_boundary:
   user_invoked_skills: [ask-matt, grill-me, grill-with-docs, handoff, implement, improve-codebase-architecture, loop-me, setup-matt-pocock-skills, setup-ts-deep-modules, teach, to-questionnaire, to-spec, to-tickets, triage, wait-what, wayfinder, writing-beats, writing-fragments, writing-shape]
   lifecycle_managed_user_entries: [setup-matt-pocock-skills, grill-with-docs, to-spec, to-tickets, implement]
-  model_invoked_skills: [code-review, codebase-design, diagnosing-bugs, domain-modeling, grilling, migrate-to-shoehorn, prototype, research, resolving-merge-conflicts, scaffold-exercises, setup-pre-commit, tdd, writing-for-agents]
-  lifecycle_allowed_model_invoked_skills: [code-review, codebase-design, diagnosing-bugs, domain-modeling, grilling, prototype, research, tdd]
+  model_invoked_skills: [code-review, codebase-design, diagnosing-bugs, domain-modeling, grilling, migrate-to-shoehorn, prototype, resolving-merge-conflicts, scaffold-exercises, setup-pre-commit, tdd, writing-for-agents, yss-research]
+  lifecycle_allowed_model_invoked_skills: [code-review, codebase-design, diagnosing-bugs, domain-modeling, grilling, prototype, tdd, yss-research]
   lifecycle_may_invoke_user_invoked: false
   formal_artifact_owner: explicit-user-entry
   continuous_orchestration: compatibility-prepare-and-validate-only
@@ -116,7 +181,7 @@ matt_invocation_boundary:
 
 skill_source_contract:
   lock_version: 3
-  source_revisions_required: [mattpocock/skills]
+  source_revisions_required: [mattpocock/skills, iloveZzz/yss-ui]
   adaptation_ref_required_when_effective_diff: true
   retired_shared_skills: [batch-grill-me, product-design-prototype, yss-dictionary, yss-jdbc, yss-log, yss-taskflow, yss-backend-scaffold-application, yss-backend-scaffold-domain, yss-backend-scaffold-infrastructure, yss-backend-scaffold-web]
 
@@ -134,9 +199,9 @@ work_unit_routes:
   work-unit.discovery-opportunity:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
     primary_skill: yss-product-lifecycle
-    supporting_skills: [competitive-intelligence, research]
-    skills: [competitive-intelligence, research]
-    route_by: {market_or_competitor_fact: competitive-intelligence, technical_or_standard_fact: research, no_external_fact: yss-product-lifecycle}
+    supporting_skills: [competitive-intelligence, yss-research]
+    skills: [competitive-intelligence, yss-research]
+    route_by: {market_or_competitor_fact: competitive-intelligence, technical_or_standard_fact: yss-research:technical-evidence, strategy_fact: yss-research:strategy-evidence, no_external_fact: yss-product-lifecycle}
     applies_when: opportunity_or_external_fact_requires_validation
     not_applicable_reason: no_external_fact
   work-unit.discovery-requirements:
@@ -146,6 +211,24 @@ work_unit_routes:
     skills: [grilling, domain-modeling]
     applies_when: requirements_or_domain_boundary_unclear
     not_applicable_reason: requirements_already_confirmed
+  work-unit.domain-strategy-design:
+    native: {source: yss-product-lifecycle, skill: yss-stage-decision, invocation_mode: model-invoked}
+    primary_skill: yss-stage-decision
+    supporting_skills: [domain-modeling, yss-research, grilling]
+    skills: [yss-stage-decision, domain-modeling, yss-research, grilling]
+    research_contract: {profile: strategy-evidence, mode_before_gate: evidence-audited, artifact_owner: yss-research, downstream_owner: yss-stage-decision}
+    human_gate: domain-strategy-approved
+    applies_when: domain_boundary_or_language_or_core_rule_impact
+    not_applicable_reason: no_domain_strategy_impact
+  work-unit.stage-decision:
+    native: {source: yss-product-lifecycle, skill: yss-stage-decision, invocation_mode: model-invoked}
+    primary_skill: yss-stage-decision
+    supporting_skills: [domain-modeling, yss-research]
+    skills: [yss-stage-decision, domain-modeling, yss-research]
+    research_contract: {profile: strategy-evidence, mode_before_gate: evidence-audited, artifact_owner: yss-research, downstream_owner: yss-stage-decision}
+    human_gate: stage-decision-package-approved
+    applies_when: discovery_to_spec_requires_stable_decision_package
+    not_applicable_reason: existing_approved_stage_decision_current
   work-unit.spec-synthesis:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
     primary_skill: yss-product-lifecycle
@@ -158,42 +241,58 @@ work_unit_routes:
   work-unit.prototype-design:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
     primary_skill: yss-prototype-stage
-    supporting_skills: [prototype-review, yss-design-system, yss-antd-design, product-design:index]
-    skills: [prototype-review, yss-design-system, yss-prototype-stage, yss-antd-design, product-design:index]
+    supporting_skills: [prototype-review, yss-design-system, product-design:index, yss-antd-design]
+    skills: [prototype-review, yss-design-system, yss-prototype-stage, product-design:index, yss-antd-design]
+    execution_order: [yss-design-system, low-fidelity-assets, prototype-review, prototype-profile-routing, profile-adapter-build, browser-design-qa-accessibility, user-confirmation]
+    profile_routing_ref: .agents/skills/yss-prototype-stage/references/prototype-profile-routing.md
+    prototype_adapter_ref: .agents/skills/yss-prototype-stage/references/product-design-adapter.md
+    evidence_schema_version: 3
+    profile_contract:
+      default_when_uncertain: H2
+      highest_matching_profile_wins: true
+      profiles:
+        H1: {kind: visual-review, adapter: static-html, node_runtime_required: false, antd_facts: not-applicable}
+        H2: {kind: flow-review, adapter: runnable-flow, react_antd: supported-not-required, antd_facts: conditional}
+    implementation_handoff: {production_component_assumptions: required-array, verification_targets: frontend-implementation-only}
+    version_boundary: {h2_design_standard: ant-design-v6-when-applicable, prototype_must_not_call: yss-ui, production_version_source: implementation-lockfile}
     human_gate: prototype-confirmation
     applies_when: product_design_impact
     not_applicable_reason: no_ui_or_product_design_impact
   work-unit.technical-analysis:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
-    primary_skill: yss-router
-    supporting_skills: [yss-openapi-governance, yss-openapi-draft-review, codebase-design, implementation-repo-onboarding]
-    skills: [yss-openapi-governance, yss-openapi-draft-review, codebase-design, implementation-repo-onboarding, yss-router]
+    primary_skill: yss-implementation-contract-compiler
+    supporting_skills: [yss-openapi-governance, yss-openapi-draft-review, codebase-design, implementation-repo-onboarding, yss-tactical-design]
+    skills: [yss-openapi-governance, yss-openapi-draft-review, codebase-design, implementation-repo-onboarding, yss-tactical-design, yss-implementation-contract-compiler]
+    tactical_ddd:
+      applies_when: [aggregate-impact, state-machine-impact, invariant-impact, consistency-impact, domain-event-impact, gateway-boundary-impact, persistence-mapping-impact]
+      not_applicable_reason: no_tactical_ddd_impact
+      default_artifact: system-overview-design.tactical-ddd-check
+      standalone_artifact: artifact.tactical-design
+      review_evidence: evidence.tactical-design-review
+      statuses: [draft, ready-for-human, approved, blocked, stale, drift, new_impacts, not-applicable]
+      approved_by: yss-product-lifecycle
+      forbidden: [self-approval, ready-for-agent, production-code-generation]
     human_gate: openapi-freeze_if_api_impact
     applies_when: technical_or_contract_impact
     not_applicable_reason: no_technical_or_contract_impact
   work-unit.ticket-decomposition:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
     primary_skill: yss-product-lifecycle
-    supporting_skills: [yss-router]
+    supporting_skills: [yss-implementation-contract-compiler]
     compatibility: {source: mattpocock/skills, skill: to-tickets, invocation_mode: reference, formal_artifact_owner: explicit-user-entry}
-    skills: [yss-router]
+    skills: [yss-implementation-contract-compiler]
     applies_when: frozen_scope_ready_for_slicing
     not_applicable_reason: contract_or_scope_not_frozen
+    must_complete_before: work-unit.slice-implementation
   work-unit.slice-implementation:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
-    primary_skill: yss-router
-    supporting_skills: [tdd, yss-ui, yss-page-module-development]
+    primary_skill: yss-implementation-contract-compiler
+    supporting_skills: [tdd, yss-ui, yss-ui-business-page-generation, yss-page-module-development]
     compatibility: {source: mattpocock/skills, skill: implement, invocation_mode: reference, formal_artifact_owner: explicit-user-entry}
-    skills: [tdd, yss-router, yss-ui, yss-page-module-development]
-    conditional_completion:
-      data_analysis_api_or_controller_impact:
-        required_skills: [data-analysis-java-implementation]
-        required_verification: [java-web-style, fmt-check, smart-doc-openapi]
-        required_evidence: [yss-skill-execution-result, fresh-verification, smart-doc-verification, smart-doc-output, frozen-api-comparison]
-        blocked_when: [missing-command-result, nonzero-exit-code, missing-evidence, missing-smart-doc-output, missing-frozen-api-comparison, smart-doc-javadoc-contract, java-format-contract]
-        on_blocked: [violation, remain-work-unit.slice-implementation]
+    skills: [tdd, yss-implementation-contract-compiler, yss-ui, yss-ui-business-page-generation, yss-page-module-development]
     frontend_route:
       primary_skill: yss-ui
+      page_generation_skill: yss-ui-business-page-generation
       page_orchestration_skill: yss-page-module-development
       conditional_skills:
         api_impact: [yss-api-integration]
@@ -213,6 +312,7 @@ work_unit_routes:
         theme_impact: no_theme_impact
     applies_when: ready_for_agent
     not_applicable_reason: slice_contract_not_approved
+    requires_completed_work_units: [work-unit.ticket-decomposition]
   work-unit.frontend-implementation-verification:
     native: {source: yss-product-lifecycle, skill: yss-product-lifecycle, invocation_mode: model-invoked}
     primary_skill: yss-ui
@@ -223,8 +323,46 @@ work_unit_routes:
   work-unit.code-review:
     native: {source: yss-product-lifecycle, skill: code-review, invocation_mode: model-invoked}
     primary_skill: code-review
-    supporting_skills: []
-    skills: [code-review]
+    supporting_skills: [alibaba-java-code-style, yss-ui, yss-design-system, yss-page-module-development, yss-domain, yss-application, yss-repository, yss-web-controller, yss-dto, mapstruct, lombok]
+    skills: [code-review, alibaba-java-code-style, yss-ui, yss-design-system, yss-page-module-development, yss-domain, yss-application, yss-repository, yss-web-controller, yss-dto, mapstruct, lombok]
+    review_standards_route:
+      unique_default_skill: code-review
+      second_generic_review_skill: forbidden
+      report_template: docs/templates/review-report-template.md
+      contract_required_skills: required
+      write_implementation: forbidden
+      machine_checks:
+        run_if_present: true
+        missing_tooling: not-applicable-with-reason
+        checkable_rule_without_machine: not-a-pass
+      conditional_skills:
+        backend_impact: [alibaba-java-code-style, yss-domain, yss-application, yss-repository, yss-web-controller, yss-dto, mapstruct, lombok]
+        ui_impact: [yss-ui, yss-design-system, yss-page-module-development]
+      not_applicable_reasons:
+        backend_impact: no_backend_impact
+        ui_impact: no_ui_impact
+      finding_disposition:
+        same_loop_for: [product-slice, template-maintenance]
+        intensity:
+          product-slice: slice-contract
+          template-maintenance: L1-L2-L3
+        reviewer_write_implementation: forbidden
+        repair_then_full_rereview:
+          kinds: [violation, machine_check_failure, blank_applicable_row, missing_evidence]
+          actor: implementer
+          on_original_contract: true
+          then: recapture_candidate_and_rerun_all_axes
+        stale_and_reroute:
+          kinds: [drift, new_impacts, required_skills_mismatch]
+          mark_contract: stale
+          continue_coding_on_old_contract: forbidden
+          next: compiler-or-earlier-lifecycle
+        exemption_policy:
+          not_applicable: impact_not_triggered_only
+          mandatory_waiver: forbidden
+          allowed_exits: [repair, seam-deferred-complete]
+          new_human_waiver_gate: forbidden
+          existing_human_gates_unchanged: true
     applies_when: implementation_candidate_exists
     not_applicable_reason: no_implementation_candidate
   work-unit.release-and-retrospective:
@@ -246,52 +384,53 @@ compatibility_flow_preconditions:
     output: vertical-slice-tickets
     output_role: ready-for-human
   implement:
-    required: [ready_for_agent, slice_contract_approved, slice_contract_persisted, slice_contract_current_version, build_architecture_checklist, implementation_repo, implementation_branch, ci, verification_commands, rollback_point, backend_slice_contract_if_applicable, backend_scaffold_policy_satisfied, frontend_implementation_plan_if_ui_impact]
+    required: [ready_for_agent, predecessor_work_unit, ticket_decomposition_result_ref, ticket_decomposition_result_status, vertical_slice_ticket_ref, vertical_slice_ticket_role, vertical_slice_ticket_kind, slice_contract_approved, slice_contract_persisted, slice_contract_current_version, build_architecture_checklist, implementation_repo, implementation_branch, ci, verification_commands, rollback_point, backend_slice_contract_if_applicable, backend_scaffold_policy_satisfied, frontend_implementation_plan_if_ui_impact]
     applies_to_single_session: true
 
-human_gate_approval:
-  broad_implementation_authorization_is_gate_approval: false
-  one_record_per_gate: true
-  cross_gate_reuse: forbidden
-  record_template: docs/templates/gate-approval-record-template.yaml
-  required: [gate_id, decision, artifact_ref, artifact_version, approval_scope, approver, evidence_ref, approved_at]
-  decision_values: [approved, rejected]
-  non_reusable_gates: [gate.spec-baseline-approved, gate.openapi-draft-reviewed, gate.design-reviewed, gate.openapi-frozen, gate.engineering-baseline-accepted, gate.architecture-reviewed, gate.slice-contract-approved, gate.release-ready]
-  invalid_evidence: [broad-implementation-intent, inferred-consent, agent-self-approval, approval-without-artifact-version, approval-without-scope]
-  on_invalid: paused-human-gate
+ticket_formalization:
+  implementation_predecessor: work-unit.ticket-decomposition
+  result_ref_required: true
+  result_must_be: completed
+  evidence_refs_required: true
+  vertical_slice_ticket:
+    kind: vertical-slice-ticket
+    role_before_promotion: ready-for-human
+    role_for_implementation: ready-for-agent
+    local_ref_pattern: '^docs/\\.scratch/[^/]+/issues/[^/]+\\.md$'
+    parent_ticket_ref_forbidden: true
+  slice_contract_binding:
+    ticket_ref_must_equal: vertical_slice_ticket_ref
+    status: approved
+    persisted: true
+    current_version: true
+  validator:
+    module: scripts/lib/lifecycle-transition.mjs
+    functions: [validateNextRoute, validateTicketFormalization, validateImplementationEntry]
 
-implementation_readiness:
-  required_artifacts: [impact-assessment, repository-identity, discovery, spec, functional-architecture, requirement-freeze, engineering-baseline, build-architecture-checklist, parent-ticket, vertical-slice-ticket, slice-implementation-contract, backend-slice-implementation-contract]
-  api_impact_required_chain: [openapi-draft, openapi-draft-review, openapi-design-review, openapi-freeze]
-  data_impact_required: [data-architecture, architecture-review]
-  frontend_not_applicable_requires_reason: true
-  adr_not_applicable_requires_reason: true
-  release_before_actual_release: forbidden
-  retrospective_before_trigger: forbidden
-  evidence_rule: readable-versioned-and-current
-  on_missing_or_inferred: violation-return-to-nearest-trustworthy-stage
-
-slice_contract_acceptance:
-  required_paths: [lifecycle_refs, readiness.blockers, readiness.stale_inputs, common, frontend, backend, backend.contract_ref, contract, cross_repo, common.forbidden_patterns, common.human_review_points, common.full_reroute_triggers, work_units]
-  readiness_required: [blockers, stale_inputs, not_applicable]
-  work_unit_required: [id, behavior, primary_skill, supporting_skills, tdd_mode, allowed_write_paths, expected_evidence, verification_command_ids]
-  verification_commands_require_stable_id: true
-  backend_impact_requires_backend_slice_contract: true
-  approval_requires: [router_draft_ref, lifecycle_approval_ref, persisted_ref, current_version]
-  on_missing: blocked
-
-review_readiness:
-  candidate_requires_report: true
-  report_template: docs/templates/review-report-template.md
-  missing_report: violation
-  draft_or_blocked_report_allowed_before_independent_review: true
-  required_input: [candidate_snapshot_ref, candidate_digest, review_report_ref, independent_reviewer, fresh_verification_ref]
-  completion_requires_independent_reviewer: true
+transition_graph:
+  validator: scripts/lib/lifecycle-transition.mjs
+  implementation_requires_predecessor: work-unit.ticket-decomposition
+  routes:
+    work-unit.ssot-update: [work-unit.skill-projection-sync, work-unit.intensity-aware-verification]
+    work-unit.skill-projection-sync: [work-unit.template-snapshot-build, work-unit.intensity-aware-verification]
+    work-unit.template-snapshot-build: [work-unit.attach-sync-integration, work-unit.intensity-aware-verification]
+    work-unit.attach-sync-integration: [work-unit.intensity-aware-verification]
+    work-unit.intensity-aware-verification: [work-unit.intensity-aware-review]
+    work-unit.intensity-aware-review: [work-unit.release-and-rollback]
+    work-unit.release-and-rollback: []
+    work-unit.spec-synthesis: [work-unit.prototype-design, work-unit.technical-analysis, work-unit.ticket-decomposition]
+    work-unit.prototype-design: [work-unit.technical-analysis, work-unit.ticket-decomposition]
+    work-unit.technical-analysis: [work-unit.ticket-decomposition]
+    work-unit.ticket-decomposition: [work-unit.slice-implementation]
+  forbidden_shortcuts:
+    - {from: work-unit.spec-synthesis, to: work-unit.slice-implementation}
+    - {from: work-unit.prototype-design, to: work-unit.slice-implementation}
+    - {from: work-unit.technical-analysis, to: work-unit.slice-implementation}
 
 grill_exit:
   required: [frontier_empty, facts_resolved_or_routed, decisions_confirmed, shared_understanding_confirmed, no_unresolved_runnable_blocker]
   facts_resolved_or_routed:
-    technical_fact: research
+    technical_fact: yss-research
     runnable_question: handoff-prototype-handoff
     external_decision: external-input-required
   user_confirmation_required: true
@@ -308,7 +447,15 @@ review_input:
   schema_version: 1
   required: [review_mode, review_base_ref, implementation_candidate_ref, candidate_snapshot_ref, candidate_digest, spec_ref, ticket_ref, slice_contract_ref, build_architecture_checklist_ref, yss_execution_result_refs]
   nullable: [spec_ref]
+  unique_default_skill: code-review
+  second_generic_review_skill: forbidden
   axes: [standards, spec, ui_fidelity_if_ui_impact]
+  standards_sources: [repo_coding_standards, slice_contract_required_skills, specialist_check_inputs, review_report_template]
+  completed_requires_specialist_coverage: true
+  finding_disposition_required: true
+  completed_requires_no_open_mandatory_violations: true
+  completed_requires_no_blank_applicable_rows: true
+  reviewer_write_implementation: forbidden
   repair_invalidates_candidate: true
   repair_action: recapture_candidate_and_rerun_all_axes
   modes: [committed, worktree]
@@ -400,35 +547,65 @@ backend_scaffold:
   required_status: required
   sequence:
     after: [prototype_review, prototype_verification, antd_cli_verification, browser_verification, prototype_confirmation, engineering_baseline]
-    before_generator: [yss-router-scaffold-contract, lifecycle-approve-scaffold-contract]
+    before_generator: [yss-implementation-contract-compiler-scaffold-contract, lifecycle-approve-scaffold-contract]
     before: [business_code_generation, implement]
   generator_skill: yss-ddd-scaffold-generator
   baseline_skill: yss-backend-scaffold-parent
   tdd_mode: controlled-generation
   contract_schema:
-    schema_version: 1
-    required: [contract_id, contract_version, slice_id, status, router_draft_ref, lifecycle_approval_ref, persisted_ref, current_version, implementation_repository, backend_repository, scaffold_status, target_git_url_or_output_dir, allowed_write_paths, expected_evidence_files, verification_commands, approval, work_unit, overwrite_policy]
+    schema_version: 2
+    identity: service-engineering-baseline
+    required: [contract_id, contract_version, scaffold_request_id, status, compiler_draft_ref, lifecycle_approval_ref, persisted_ref, current_version, implementation_repository, backend_repository, scaffold_status, project_name, target_output_dir, base_package, maven_coordinates, profiles, allowed_write_paths, expected_evidence_files, verification_commands, approval, work_unit, generation_policy]
     status_by_owner:
       router: [draft, ready-for-lifecycle-review, blocked]
       lifecycle: [approved, stale, blocked]
     approval:
       required: [approval_ref, approver, persisted_ref, current_version]
-    overwrite_policy:
-      required: [force_allowed, overwrite_scope, rollback_ref]
-  required_inputs: [implementation_repository, backend_repository, scaffold_status, scaffold_target_confirmed, target_git_url_or_output_dir, project_name, base_package, database, scaffold_contract_file, scaffold_contract_draft, scaffold_contract_id, scaffold_contract_version, scaffold_contract_status, scaffold_contract_approved, scaffold_contract_router_draft_ref, scaffold_contract_lifecycle_approval_ref, scaffold_contract_persisted, scaffold_contract_persisted_ref, scaffold_contract_current_version]
-  required_evidence: [generator_inputs, expected_files, scaffold_generation_manifest, generated_project_structure, generation_execution_result, verification_execution_result, ./mvnw_validate, ./mvnw_test, ./mvnw_package, yss_skill_execution_result]
+    generation_policy:
+      required: [mode, existing_target, old_project_migration, template_upgrade]
+      mode: initialize-only
+      existing_target: unsupported
+      old_project_migration: unsupported
+      template_upgrade: unsupported
+    maven_coordinates:
+      required: [group_id, project_version, parent, yss_components_version]
+      parent_required: [group_id, artifact_id, version]
+      yss_components_version: 2.0.0-SNAPSHOT
+    profiles:
+      required: [architecture, persistence, database, platform, validation_namespace, dto_placement, repository]
+      supported_initial:
+        architecture: target-domain-model
+        persistence: mybatis-plus
+        database: mysql
+        platform: spring-boot-2.7-jdk8
+        validation_namespace: javax
+        dto_placement: web
+        repository: yss-internal
+      unsupported: [old-architecture-profile, client-in-domain, mybatis, spring-boot-3, jakarta, separate-client-module]
+    unsupported_inputs:
+      schema_v1: reject-no-auto-upgrade
+      slice_id: forbidden-as-scaffold-identity
+      existing_project: reject-no-scaffold-migration
+  required_inputs: [implementation_repository, backend_repository, scaffold_status, scaffold_target_confirmed, scaffold_request_id, target_output_dir, project_name, base_package, maven_group_id, project_version, parent_group_id, parent_artifact_id, parent_version, yss_components_version, architecture_profile, persistence_profile, database, platform_profile, validation_namespace, dto_placement, repository_profile, scaffold_contract_file, scaffold_contract_draft, scaffold_contract_id, scaffold_contract_version, scaffold_contract_status, scaffold_contract_approved, scaffold_contract_compiler_draft_ref, scaffold_contract_lifecycle_approval_ref, scaffold_contract_persisted, scaffold_contract_persisted_ref, scaffold_contract_current_version]
+  required_evidence: [generator_inputs, expected_files, scaffold_generation_manifest_v2, generated_project_structure, generation_execution_result, verification_execution_result, architecture_rules, ./mvnw_validate, ./mvnw_test, ./mvnw_package, yss_skill_execution_result]
   generation_options:
     with_example: false
     force: forbidden-by-default
-    force_requires: [contract_file, contract_id, contract_version, approval_ref, router_draft_ref, persisted_ref, overwrite_scope, rollback_ref]
+    regeneration: unsupported
+    template_upgrade: unsupported
+    old_project_migration: unsupported-separate-architecture-modernization-initiative
   forbidden_generation: [business_rules, state_machine, permission, transaction, complex_query, error_mapping, user_visible_behavior, business_example_crud, unapproved_force_overwrite]
-  after_generation: [yss-backend-scaffold-parent, yss-router]
-  existing_or_initialized: [baseline_evidence, wrapper_verification, yss_router_contract_recompile]
+  after_generation: [yss-backend-scaffold-parent, yss-implementation-contract-compiler]
+  existing_or_initialized: [baseline_evidence, wrapper_verification, implementation_contract_recompile]
   verification:
     commands: ["./mvnw validate", "./mvnw test", "./mvnw package"]
     requires_execution: true
     printed_commands_are_not_evidence: true
-    evidence: [command, exit_code, duration_ms, stdout_ref, stderr_ref, executed_at]
+    completion_levels: [generated, empty-scaffold-verified, first-slice-verified]
+    downstream_readiness_claim_requires: first-slice-verified
+    evidence: [preflight, command, exit_code, failure_category, duration_ms, stdout_ref, stderr_ref, executed_at]
+    completion_requires: [validate_passed, test_passed, package_passed]
+    failure_categories: [repository-access, project-model, compilation, bootstrap-entrypoint, test-failure, packaging, maven-execution, verification-preflight]
     failure_action: blocked
   failure_action: blocked
 
@@ -462,16 +639,7 @@ tracker:
   local_markdown:
     root: docs/.scratch
     legacy_roots: [.scratch, docs/requirements/tickets]
-    feature_layout: [map.md, discovery, spec.md, spec-delta, parent-ticket.md, design, api, architecture, gates, verification, reviews, releases, retrospective.md, issues]
-    conditional_artifacts:
-      architecture/decisions: real_architecture_tradeoff
-      reviews: implementation_candidate_exists
-      releases: actual_release
-      retrospective.md: retrospective_triggered
-    ticket_fields:
-      role: {field: "Status", values: [needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix]}
-      delivery: {field: "Delivery-State", values: [planned, in-progress, implemented, verified, released]}
-    checkpoint_sync: [map.md, parent-ticket.md, issues, gates/lifecycle-checkpoint.yaml]
+    feature_layout: [map.md, discovery, spec.md, spec-delta, parent-ticket.md, design, api, architecture, gates, verification, issues]
     primary_sync: local
     remote_ticket_required: false
     remote_mirror: optional
@@ -516,14 +684,57 @@ release_readiness:
   required: [fresh_verification, release_or_rollback_evidence, independent_review, all_triggered_gates_approved_or_not_applicable]
   conditional:
     ui_impact: [gate.frontend-implementation-verified, evidence.frontend-implementation-verification]
-    data_analysis_api_or_controller_impact: [java-web-style, fmt-check, smart-doc-openapi, smart-doc-output, frozen-api-comparison]
   blocked_when: [triggered_gate_blocked, triggered_gate_stale, triggered_gate_not_evaluated, missing_evidence]
 
 wayfinder_completion:
   required: [no_open_children, no_open_blocked_or_claimed_children, no_fog, destination_clear]
 
+wayfinder_mode:
+  optional: true
+  enable_when:
+    - multi-session-or-multi-agent-work
+    - unclear-decision-frontier
+    - cross-domain-dependency-map-needed
+  lifecycle_position: discovery-to-spec-planning
+  completion_route: wayfinder -> handoff -> to-spec
+  does_not_replace: [lifecycle-gates, spec-baseline, ticket-formalization]
+  forbidden_state_mutations: [ready-for-agent, gate-approval, ticket-role]
+  template_source_use: only-when-template-evolution-is-long-running
+
+context_engineering:
+  contract_field: slice_contract.common.context_plan
+  required_context: [CONTEXT.md, approved-spec, current-slice-contract, applicable-adr-or-baseline]
+  on_demand_context: [specialist-references, implementation-repository-files, historical-evidence]
+  stop_rule: minimal-sufficient-evidence
+  missing_context_action: [blocked, reroute]
+  numeric_token_budget: not-required
+
+doubt_driven_review:
+  applies_when:
+    - api-schema-impact
+    - database-schema-impact
+    - cross-repo-contract
+    - release-or-rollback
+    - authentication-authorization-tenant-or-sensitive-data-behavior
+    - lifecycle-or-generation-semantics
+  required: [claim, counterclaim, evidence_refs, residual_risks, reviewer_ref]
+  record_in: [decision-record, architecture-review, contract-review, release-review]
+  blocking_when: [missing-counterclaim, insufficient-evidence, unresolved-residual-risk]
+  ordinary-low-risk_changes: not-required
+  no_new_lifecycle_stage: true
+
+quality_baseline_reuse:
+  source: artifact.engineering-baseline
+  applies_to: project-instance
+  consumers: [slice-implementation-contract, yss-skill-execution-result, code-review, release]
+  constraint_results_field: required
+  redefinition: forbidden
+
 ready_for_agent:
-  required: [gates_satisfied, no_stale_artifacts, blockers_closed, implementation_context_ready, implementation_repo, implementation_branch, ci, verification_commands, rollback_point, slice_contract_approved, slice_contract_persisted, slice_contract_current_version, build_architecture_checklist, backend_slice_contract_if_applicable, backend_scaffold_policy_satisfied, frontend_implementation_plan_if_ui_impact]
+  required: [gates_satisfied, no_stale_artifacts, blockers_closed, implementation_context_ready, context_plan, quality_baseline_ref, implementation_repo, implementation_branch, ci, verification_commands, rollback_point, predecessor_work_unit, ticket_decomposition_result_ref, ticket_decomposition_result_status, vertical_slice_ticket_ref, vertical_slice_ticket_role, vertical_slice_ticket_kind, slice_contract_approved, slice_contract_persisted, slice_contract_current_version, build_architecture_checklist, backend_slice_contract_if_applicable, backend_scaffold_policy_satisfied, frontend_implementation_plan_if_ui_impact]
+  ticket_formalization_validator: scripts/lib/lifecycle-transition.mjs
+  requires_vertical_slice_ticket: true
+  parent_ticket_as_implementation_ref: forbidden
 
 frontend_implementation_plan:
   applies_when: [ui_impact]

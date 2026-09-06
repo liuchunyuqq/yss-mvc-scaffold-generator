@@ -27,9 +27,11 @@
 | 稳定 ID | 门禁 | 所属阶段 | 触发条件 | 前置门禁 | 必须留下的证据 |
 |---|---|---|---|---|---|
 | `gate.repository-identity-valid` | 仓库身份校验 | `stage.entry-triage` | 每次进入流程。 | 无 | `evidence.repository-identity-check` |
+| `gate.domain-strategy-approved` | DDD 战略设计批准 | `stage.discovery` | 存在 DDD 战略设计影响或需要确定领域边界、统一语言和核心规则。 | 无 | `evidence.domain-strategy-review`、`evidence.approval-record` |
+| `gate.stage-decision-package-approved` | 阶段决策包批准 | `stage.discovery` | Discovery 到 Spec 入口需要稳定的阶段决策合同。 | `gate.domain-strategy-approved` | `evidence.stage-decision-package`、`evidence.approval-record` |
 | `gate.spec-baseline-approved` | Spec 基线批准 | `stage.spec-architecture` | 新功能、行为变化或范围扩大进入 Spec 基线。 | 无 | `evidence.approval-record` |
 | `gate.prototype-reviewed` | 原型评审 | `stage.product-design` | 命中产品设计影响，且低保真页面、流程、状态或 API 反推需要独立评审。 | 无 | `evidence.prototype-review-result` |
-| `gate.prototype-verified` | 高保真原型验证 | `stage.product-design` | 需要高保真 HTML 原型进行视觉与交互校准。 | 无 | `evidence.antd-cli-validation`、`evidence.browser-prototype-verification` |
+| `gate.prototype-verified` | 原型交付物验证 | `stage.product-design` | 产品设计影响需要通过 H1/H2 原型交付物进行视觉或流程校准；真实组件验证留到前端实现阶段。 | 无 | `evidence.prototype-profile-decision`、`evidence.prototype-deliverable-verification` |
 | `gate.user-confirmation` | 用户确认 | `stage.product-design` | 产品设计影响尚未被人工确认。 | 无 | `evidence.prototype-confirmation` |
 | `gate.openapi-draft-reviewed` | OpenAPI Draft Review | `stage.system-data-engineering` | 有 API 影响且 Draft 已生成。 | 无 | `evidence.openapi-draft-review` |
 | `gate.design-reviewed` | 设计审查 | `stage.system-data-engineering` | API 或架构影响。 | 无 | `evidence.design-review-result` |
@@ -46,6 +48,8 @@
 | 稳定 ID | 产物 | 所属阶段 | 触发条件 |
 |---|---|---|---|
 | `artifact.impact-assessment` | 影响面分析 | `stage.entry-triage` | 每次变更。 |
+| `artifact.domain-strategy` | DDD 战略设计 | `stage.discovery` | 新产品/模块、跨上下文功能、统一语言冲突、服务边界或核心规则变化。 |
+| `artifact.stage-decision-package` | 阶段决策包 | `stage.discovery` | Discovery 到 Spec 入口需要结构化上游决策。 |
 | `artifact.discovery-record` | Discovery 记录 | `stage.discovery` | 新问题或边界不清。 |
 | `artifact.spec` | Spec | `stage.spec-architecture` | 新功能、行为变化或范围扩大。 |
 | `artifact.product-overview` | 产品总体设计 | `stage.spec-architecture` | 进入 Spec 基线。 |
@@ -53,7 +57,7 @@
 | `artifact.interaction-spec` | 交互说明 | `stage.product-design` | 命中产品设计影响。 |
 | `artifact.low-fidelity-prototype` | 低保真原型 | `stage.product-design` | 命中产品设计影响。 |
 | `artifact.state-matrix` | 状态矩阵 | `stage.product-design` | 存在状态流转、异常或恢复。 |
-| `artifact.high-fidelity-html-prototype` | 高保真 HTML 原型 | `stage.product-design` | 需要视觉与交互校准。 |
+| `artifact.prototype-deliverable` | 原型交付物 | `stage.product-design` | 低保真评审后需要 H1 视觉或 H2 流程校准。 |
 | `artifact.prototype-review` | 原型评审记录 | `stage.product-design` | 命中 gate.prototype-reviewed。 |
 | `artifact.prototype-confirmation` | 原型确认记录 | `stage.product-design` | 命中 gate.user-confirmation。 |
 | `artifact.openapi-draft` | OpenAPI Draft | `stage.system-data-engineering` | 有 API 影响。 |
@@ -61,6 +65,7 @@
 | `artifact.data-architecture` | 数据架构 | `stage.system-data-engineering` | 数据模型、存储或一致性变化。 |
 | `artifact.engineering-baseline` | 工程基线记录 | `stage.system-data-engineering` | 后端、前端或高风险工程变化。 |
 | `artifact.architecture-review` | 架构审查记录 | `stage.system-data-engineering` | 高风险或跨边界变化。 |
+| `artifact.tactical-design` | DDD 战术设计 | `stage.system-data-engineering` | 聚合边界、状态机、一致性或持久化映射复杂到无法在系统概要设计的 Tactical DDD Check 中清楚表达。 |
 | `artifact.spec-delta` | Spec Delta | `stage.spec-architecture` | 已有冻结 Spec 的高风险行为变化。 |
 | `artifact.parent-ticket` | 功能父 Ticket | `stage.ticket-formalization` | 每个进入追踪的功能。 |
 | `artifact.vertical-slice-ticket` | 垂直切片 Ticket | `stage.ticket-formalization` | 进入实现前。 |
@@ -74,6 +79,9 @@
 | 稳定 ID | 证据 | 说明 |
 |---|---|---|
 | `evidence.impact-assessment` | 影响面分析记录 | 受影响仓库、资产、风险与最近可信阶段。 |
+| `evidence.domain-strategy-review` | DDD 战略设计评审证据 | 子域、限界上下文、统一语言、Context Map、场景和不变量的结构化评审结果。 |
+| `evidence.tactical-design-review` | DDD 战术设计评审证据 | 聚合、Entity、Value Object、不变量、状态机、一致性、Gateway 与 API 隔离的结构化评审结果。 |
+| `evidence.stage-decision-package` | 阶段决策包验证证据 | 阶段决策包的 Schema、引用、语义一致性、影响传播和下游消费验证结果。 |
 | `evidence.maintenance-intensity-checkpoint` | 模板维护强度 checkpoint | template-source 变更的 L1 / L2 / L3 分级、触发项、最低验证证据、review 模式和升级记录。 |
 | `evidence.repository-identity-check` | 仓库身份校验结果 | yss-project.yaml 的合法性与 repository_mode 裁决。 |
 | `evidence.approval-record` | 人工批准记录 | 对需要人工批准的 Spec、设计、契约或发布裁决的可追溯记录。 |
@@ -81,6 +89,8 @@
 | `evidence.prototype-review-result` | 原型评审结果 | 低保真页面、流程、状态与 API 反推的独立评审结论和阻断项。 |
 | `evidence.antd-cli-validation` | Ant Design CLI 校验证据 | 设计语言、组件、demo、token、semantic 与 lint 的实际 CLI/目标版本和可读输出引用。 |
 | `evidence.browser-prototype-verification` | 浏览器原型验证证据 | 高保真原型的非空渲染、主流程、异常状态、视口和控制台验证记录。 |
+| `evidence.prototype-profile-decision` | 原型档位选择证据 | 基于低保真评审后的风险触发、决定目标、H1/H2 计算结果以及人工升降级依据。 |
+| `evidence.prototype-deliverable-verification` | 原型交付物验证证据 | schema v3 共同证据与所选档位的浏览器、Design QA、无障碍、组件事实或真实组件合同验证结果。 |
 | `evidence.prototype-confirmation` | 原型用户确认记录 | 高保真原型、验证清单和进入下游阶段范围的人工确认结论。 |
 | `evidence.openapi-draft-review` | OpenAPI Draft 审查记录 | P0、错误、分页、幂等和契约测试审查记录。 |
 | `evidence.contract-approval` | Slice 合同批准记录 | 生命周期编排器批准且已持久化的当前版本合同引用。 |
@@ -89,6 +99,7 @@
 | `evidence.fresh-verification` | Fresh Verification 记录 | 本轮实际执行的验证命令、结果和时间。 |
 | `evidence.checkpoint-and-rollback` | Checkpoint 与回滚点 | 可追溯的变更边界、发布记录和恢复动作。 |
 <!-- lifecycle-registry:structure:end -->
+
 
 完成结论必须同时包含批准的 Slice Implementation Contract 与 YSS Skill Execution Result（若进入实现阶段）。
 

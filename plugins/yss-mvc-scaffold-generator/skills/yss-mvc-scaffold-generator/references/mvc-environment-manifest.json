@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "profile_id": "yss.mvc.backend",
+  "environment_version": "1.0.0",
+  "compatibility": "skill-utils-v1",
+  "tool_version": "1.0.0",
+  "shared_skills": [
+    "yss-product-lifecycle",
+    "yss-implementation-contract-compiler",
+    "yss-dto",
+    "yss-validation",
+    "yss-exception",
+    "yss-openapi-governance",
+    "yss-openapi-draft-review",
+    "yss-audit-log",
+    "yss-cache",
+    "yss-distributed-id",
+    "yss-excel-mvc",
+    "yss-userinfo",
+    "yss-resilience4j",
+    "yss-security-algorithm",
+    "yss-backend-runtime-verification",
+    "yss-skill-source-index-refresh",
+    "yss-research",
+    "yss-stage-decision",
+    "alibaba-java-code-style",
+    "lombok",
+    "mapstruct",
+    "tdd",
+    "diagnosing-bugs",
+    "code-review",
+    "codebase-design",
+    "competitive-intelligence",
+    "handoff",
+    "grilling",
+    "to-spec",
+    "to-tickets",
+    "implement",
+    "implementation-repo-onboarding",
+    "cross-repo-implementation-routing",
+    "resolving-merge-conflicts"
+  ],
+  "adapted_skills": [
+    "yss-application",
+    "yss-repository",
+    "yss-web-controller",
+    "yss-mybatis"
+  ],
+  "projection_roots": [
+    ".claude/skills",
+    ".codex/skills",
+    ".cursor/skills",
+    ".pi/skills",
+    ".qoder/skills",
+    ".trae/skills"
+  ],
+  "excluded_skills": [
+    "yss-domain",
+    "yss-ddd-scaffold-generator",
+    "yss-tactical-design",
+    "domain-modeling",
+    "yss-frontend-scaffold-generator",
+    "yss-ui",
+    "yss-prototype-stage",
+    "maintaining-skills",
+    "yss-mvc-scaffold-generator",
+    "yss-components"
+  ],
+  "additional_capabilities": [
+    {
+      "id": "quality.backend-runtime",
+      "primary_skill": "yss-backend-runtime-verification",
+      "task_modes": [
+        "result-validation",
+        "review-input"
+      ]
+    }
+  ],
+  "legacy_aliases": {
+    "yss-router": "yss-implementation-contract-compiler"
+  }
+}

@@ -1,26 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { DEFAULT_REGISTRY, ROOT, loadRegistry, validateRegistry } from "./lib/lifecycle-registry.mjs";
+import { validateJsonSchema } from "./lib/json-schema.mjs";
 import { isTemplateSource } from "./lib/repository-mode.mjs";
-import { validateJsonSchema } from "./lib/json-schema-lite.mjs";
-
-const schemaValidator = String.raw`
-import json
-import sys
-from jsonschema import Draft202012Validator
-
-with open(sys.argv[1], encoding="utf-8") as schema_file:
-    schema = json.load(schema_file)
-registry = json.load(sys.stdin)
-errors = sorted(Draft202012Validator(schema).iter_errors(registry), key=lambda error: list(error.absolute_path))
-if errors:
-    for error in errors:
-        location = ".".join(str(part) for part in error.absolute_path) or "<root>"
-        print(f"{location}: {error.message}", file=sys.stderr)
-    sys.exit(1)
-`;
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, { cwd: ROOT, encoding: "utf8", ...options });
@@ -33,26 +17,23 @@ try {
   const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
   if (schema.properties?.schema_version?.const !== 1) throw new TypeError("生命周期注册表 JSON Schema 缺少 schema_version 约束");
   const registry = loadRegistry(registryPath);
-  validateJsonSchema(registry, schema);
+  validateJsonSchema(registry, schemaPath, { label: "生命周期注册表 JSON Schema" });
   validateRegistry(registry);
   if (registryPath === DEFAULT_REGISTRY) {
-    const projectLock = JSON.parse(readFileSync(path.join(ROOT, "skills-lock.json"), "utf8"));
-    const skillUtilsRoot = projectLock.distribution?.skillUtilsDir ? path.resolve(ROOT, projectLock.distribution.skillUtilsDir) : ROOT;
     const generated = run("node", ["scripts/node-generate-lifecycle-artifacts.mjs", "--check"]);
     if (generated.status !== 0) throw new TypeError(`${generated.stdout}${generated.stderr}`.trim());
     for (const relativePath of ["docs/process/lifecycle-registry.yaml", "docs/process/lifecycle-registry-baseline.json", "docs/process/schemas/lifecycle-registry.schema.json"]) {
       const ignored = run("git", ["check-ignore", "-q", relativePath]);
       if (ignored.status === 0) throw new TypeError(`权威注册表资产不得被 Git 忽略: ${relativePath}`);
     }
-    const stalePaths = ["AGENTS.md", "README.md", "docs/user-guide/产品生命周期工作流.md", ".agents/skills/yss-product-lifecycle/SKILL.md", "docs/process/lifecycle-artifact-map.md"];
+    const stalePaths = ["AGENTS.md", "README.md", "docs/user-guide/用户手册.md", ".agents/skills/yss-product-lifecycle/SKILL.md", "docs/process/lifecycle-artifact-map.md"];
     if (isTemplateSource(ROOT)) stalePaths.push(".template-source/derived/harness-work-unit-map.md");
     for (const relativePath of stalePaths) {
-      const target = path.join(ROOT, relativePath);
-      if (existsSync(target) && /\d+\s*个(?:主阶段|门禁|工作单元|职责点)/.test(readFileSync(target, "utf8"))) {
+      if (/\d+\s*个(?:主阶段|门禁|工作单元|职责点)/.test(readFileSync(path.join(ROOT, relativePath), "utf8"))) {
         throw new TypeError(`${relativePath} 不得手工声明生命周期对象数量；请引用 lifecycle-registry.yaml`);
       }
     }
-    const publicSkills = JSON.parse(readFileSync(path.join(skillUtilsRoot, "yss-public-skills.json"), "utf8"));
+    const publicSkills = JSON.parse(readFileSync(path.join(ROOT, "yss-public-skills.json"), "utf8"));
     const groups = new Map(publicSkills.groupings.map((group) => [group.title, group.skills]));
     if (!groups.get("后端")?.includes("yss-web-controller")) throw new TypeError("yss-web-controller 必须在后端分组");
     if (groups.get("前端")?.includes("yss-web-controller")) throw new TypeError("yss-web-controller 不得在前端分组");

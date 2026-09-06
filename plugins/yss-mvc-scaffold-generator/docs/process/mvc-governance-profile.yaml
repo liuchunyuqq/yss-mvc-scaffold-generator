@@ -1,0 +1,45 @@
+schema_version: 1
+profile_id: yss.mvc.backend
+status: active
+architecture_style: mvc
+runtime_scope: backend-only
+applies_to:
+  skill: yss-mvc-scaffold-generator
+  project_type: data-analysis
+  modules: [server, core, client, repository, adapter, feign-client]
+frontend:
+  status: not-applicable
+  reason: 初始化目标是独立 Java MVC 后端；前端必须在另行登记的实现仓库中交付。
+domain_driven_design:
+  status: not-applicable
+  reason: 当前脚手架使用固定六模块 MVC 分层，不生成 DDD application/domain/infrastructure/adapter 分层。
+lifecycle:
+  required_work_units:
+    - work-unit.entry-triage
+    - work-unit.discovery-requirements
+    - work-unit.spec-synthesis
+    - work-unit.technical-analysis
+    - work-unit.ticket-decomposition
+    - work-unit.slice-implementation
+    - work-unit.code-review
+    - work-unit.release-and-retrospective
+  not_applicable_work_units:
+    - work-unit.domain-strategy-design
+    - work-unit.prototype-design
+    - work-unit.frontend-implementation-verification
+  routing:
+    implementation_contract_compiler: yss-implementation-contract-compiler
+    backend_skills: [yss-web-controller, yss-application, yss-repository, yss-mybatis, yss-dto, yss-exception]
+    forbidden_skills: [yss-domain, yss-frontend-scaffold-generator, yss-ui]
+verification:
+  required_commands:
+    - mvnw validate
+    - mvnw test
+    - mvnw package
+  required_evidence:
+    - docs/.scratch/<feature>/verification/yss-skill-execution-result.yaml
+    - docs/.scratch/<feature>/verification/fresh-verification.md
+governance:
+  lifecycle_registry_projection: optional-derived-view
+  checkpoint_schema_support: patternProperties
+  skill_environment: sibling-skillUtils

@@ -5,9 +5,7 @@ import { fileURLToPath } from "node:url";
 import { parseDocument } from "./vendor/yaml.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const projectLock = JSON.parse(readFileSync(path.join(root, "skills-lock.json"), "utf8"));
-const skillRoot = projectLock.distribution?.skillUtilsDir ? path.resolve(root, projectLock.distribution.skillUtilsDir) : root;
-const profilePath = path.join(skillRoot, ".agents/skills/yss-dto/references/openapi-wire-profile.yaml");
+const profilePath = path.join(root, ".agents/skills/yss-dto/references/openapi-wire-profile.yaml");
 
 function ensure(condition, message) {
   if (!condition) throw new TypeError(message);
@@ -39,6 +37,12 @@ function checkArrayData(field, label, direction) {
   ensure(Array.isArray(field.empty_value) && field.empty_value.length === 0, `${label}.empty_value 必须为 []`);
 }
 
+function checkFactory(factory, label, expectedArguments) {
+  ensure(factory && typeof factory === "object", `${label} 必须是对象`);
+  ensure(/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(factory.method ?? ""), `${label}.method 必须是 Java identifier`);
+  ensure(JSON.stringify(factory.arguments) === JSON.stringify(expectedArguments), `${label}.arguments 必须按顺序为 [${expectedArguments.join(", ")}]`);
+}
+
 try {
   const document = parseDocument(readFileSync(profilePath, "utf8"), { maxAliasCount: 0 });
   ensure(document && document.errors.length === 0, `wire profile YAML 无法解析: ${document?.errors?.map((error) => error.message).join("; ")}`);
@@ -53,8 +57,10 @@ try {
   ensure(profile.canonical?.openapi?.response_wrapper_extension === "x-yss-response-wrapper", "响应包装扩展字段不正确");
   ensure(profile.canonical?.openapi?.literal_java_generic_schema === false, "不得把 Java 泛型文字作为 OpenAPI schema");
 
-  const compatibility = profile.compatibility_packages?.find((item) => item.java_package === "com.yss.cloud.dto.response");
-  ensure(compatibility?.use_for_new_contracts === false, "dto.response 必须标记为非新契约 canonical");
+  const unsupportedPackage = profile.unsupported_packages?.find((item) => item.java_package === "com.yss.cloud.dto.response");
+  ensure(unsupportedPackage?.status === "unsupported", "dto.response 必须标记为 unsupported");
+  ensure(unsupportedPackage?.use_for_new_contracts === false, "dto.response 不得用于新契约");
+  ensure(unsupportedPackage?.policy === "reject-in-new-contracts-no-auto-migration", "dto.response 必须拒绝新契约且不得自动迁移");
 
   const commonFields = profile.common_response?.fields ?? {};
   sameMembers(Object.keys(commonFields), ["success", "dataType", "code", "message", "tips"], "common response fields");
@@ -69,6 +75,8 @@ try {
   for (const name of ["SingleResult", "MultiResult", "PageResult"]) {
     ensure(profile.wrappers[name].java_type.startsWith(`com.yss.cloud.dto.result.${name}<T>`), `${name} 必须来自 canonical result package`);
   }
+  checkFactory(profile.wrappers.SingleResult?.java_factory, "SingleResult.java_factory", ["data"]);
+  checkFactory(profile.wrappers.PageResult?.java_factory, "PageResult.java_factory", ["data", "totalCount", "pageSize", "pageIndex"]);
   const singleData = profile.wrappers.SingleResult?.data;
   ensure(singleData?.direction === "response", "SingleResult.data 必须为 response");
   ensure(singleData?.wire_shape === "endpoint-schema-or-null", "SingleResult.data 必须绑定 endpoint schema 或 null");

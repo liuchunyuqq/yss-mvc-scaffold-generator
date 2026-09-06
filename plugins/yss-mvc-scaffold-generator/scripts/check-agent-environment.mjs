@@ -33,6 +33,7 @@ if (requiredToolVersion || compatibility) {
   }
 }
 const agent = (process.argv.find((arg) => arg.startsWith("--agent="))?.split("=", 2)[1] ?? "codex").toLowerCase();
+const profile = process.argv.find((arg) => arg.startsWith("--profile="))?.split("=", 2)[1];
 const roots = {
   codex: path.join(skillUtils, ".codex", "skills"),
   claude: path.join(skillUtils, ".claude", "skills"),
@@ -45,7 +46,10 @@ const roots = {
 
 if (!roots[agent]) throw new Error(`不支持的 Agent: ${agent}`);
 
-const required = { ...(lock.skills?.shared ?? {}), ...(lock.skills?.platform?.[`.${agent}/skills`] ?? {}) };
+const allRequired = { ...(lock.skills?.shared ?? {}), ...(lock.skills?.platform?.[`.${agent}/skills`] ?? {}) };
+const profileSkills = profile ? projectLock.profiles?.[profile]?.required_skills : null;
+if (profile && !Array.isArray(profileSkills)) { console.error(`未知技能治理 Profile: ${profile}`); process.exit(1); }
+const required = profileSkills ? Object.fromEntries(profileSkills.filter((name) => allRequired[name]).map((name) => [name, allRequired[name]])) : allRequired;
 const missing = [];
 const drift = [];
 for (const [name, metadata] of Object.entries(required).sort(([a], [b]) => a.localeCompare(b))) {

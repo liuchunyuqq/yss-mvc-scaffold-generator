@@ -74,11 +74,11 @@ function buildPlan(o, skillUtils, mavenSettings) {
 
 async function generate(o) {
   await assertEmpty(o.targetDir);
-  const skillUtils = await ensureSkillUtils(o.targetDir, { apply: !o.dryRun });
   assertGitAvailable();
   o.gitAuthor = resolveGitAuthor();
   generatedJavadocAuthor = o.gitAuthor;
   const mavenSettings = await resolveMavenSettings(o);
+  const skillUtils = await ensureSkillUtils(o.targetDir, { apply: !o.dryRun });
   const plan = buildPlan(o, skillUtils, mavenSettings);
   if (o.dryRun) {
     console.log(JSON.stringify({ mode: "dry-run", ...plan }, null, 2));

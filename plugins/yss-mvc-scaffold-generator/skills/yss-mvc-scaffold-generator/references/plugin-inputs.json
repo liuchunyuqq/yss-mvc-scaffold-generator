@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "files": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "yss-project.yaml",
+    "skills-lock.json",
+    ".nvmrc",
+    "package.json"
+  ],
+  "directories": [
+    "docs/agents",
+    "docs/process",
+    "docs/templates",
+    "docs/architecture/templates",
+    "scripts/lib",
+    "scripts/vendor"
+  ],
+  "script_files": [
+    "check-agent-environment.mjs",
+    "implementation-path-policy",
+    "repository-mode",
+    "repository-scope-policy",
+    "generate-lifecycle-artifacts",
+    "node-generate-lifecycle-artifacts.mjs",
+    "node-verify-lifecycle-registry.mjs",
+    "verify-lifecycle-registry",
+    "verify-lifecycle-checkpoint",
+    "verify-frontend-implementation-evidence",
+    "verify-yss-dto-openapi-profile",
+    "verify-mvc-governance-profile.mjs"
+  ],
+  "generation_assets": [
+    ".agents/skills/yss-ddd-scaffold-generator/assets/wrapper"
+  ]
+}

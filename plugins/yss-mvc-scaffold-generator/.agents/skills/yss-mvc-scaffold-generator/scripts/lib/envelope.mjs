@@ -22,6 +22,8 @@ export async function writeProjectEnvelope(o) {
 
 ## MVC 后端治理覆盖
 
+MVC 实现的有效 capability / Recipe 注册表位于 \`../skillUtils/mvc-skill-registry.yaml\`；它由基座注册表按 MVC 清单生成，合同绑定其 digest。项目中通用注册表只作为上游参考，不据此调用 DDD 或前端技能。
+
 本项目的权威架构裁剪位于 \`yss-project.yaml\` 指向的 \`docs/process/mvc-governance-profile.yaml\`，优先于通用生命周期说明中的 DDD 和前端专属要求。
 
 - 当前项目只交付 Java MVC 后端六模块；\`yss-domain\`、DDD 战术设计、原型设计和前端实现验证均为 \`not-applicable\`，不得生成空产物。
@@ -55,7 +57,7 @@ export async function writeProjectEnvelope(o) {
   await writeFile(issueTrackerPath, (await readFile(issueTrackerPath, "utf8")).replace("当平台为 GitLab 时，优先使用 `glab` 或项目快捷入口 `scripts/gitworks`。", "当平台为 GitLab 时，使用已认证的 `glab`。"), "utf8");
   const tailoringPath = path.join(o.targetDir, "docs/process/harness-process-tailoring.md");
   await writeFile(tailoringPath, (await readFile(tailoringPath, "utf8")).replace("使用 `scripts/verify-maintenance-checkpoint <file>` 或通过 stdin 传入 YAML / JSON 做只读校验。触发项 ID 与最低等级只由 `docs/process/maintenance-intensity.yaml` 维护；校验器消费该策略。未知触发项必须先更新该权威策略和场景，不能静默接受。", "维护 checkpoint 校验只在上游 Harness 模板源执行。触发项 ID 与最低等级只由 `docs/process/maintenance-intensity.yaml` 维护；未知触发项必须先更新该权威策略和场景，不能静默接受。"), "utf8");
-  await put(o.targetDir, "docs/agents/skills-maintenance.md", "# 项目实例 Skill 环境\n\n本项目不维护或发布共享 Skill。共享 Skill 位于相邻的 `../skillUtils`，版本由项目根 `skills-lock.json` 锁定。\n\n开发前执行：\n\n```bash\nnpm run check-agent-environment\n```\n\n输出 `READY` 表示工具版本、兼容协议、Agent 投影和 canonical Skill hash 一致。输出 `NOT_READY` 时停止功能实现，使用上游 Harness 的项目初始化或刷新流程更新 `skillUtils`；不要在项目内手工同步、导出或覆盖共享 Skill。\n\n项目实例只消费已提交的 `scripts/lib/*.mjs` 和 `scripts/vendor/*.mjs`。模板发布、Skill 投影生成、上游来源验证和公开导出均属于 Harness 模板源维护，不在本项目执行。");
+  await put(o.targetDir, "docs/agents/skills-maintenance.md", "# 项目实例 Skill 环境\n\n本项目不维护或发布共享 Skill。共享 Skill 位于相邻的 `../skillUtils`，版本由项目根 `skills-lock.json` 锁定。\n\n开发前执行：\n\n```bash\nnpm run check-agent-environment\n```\n\n输出 `READY` 表示工具版本、兼容协议、Agent 投影和 canonical Skill hash 一致。输出 `NOT_READY` 时停止功能实现，使用同版本 MVC 插件的 `scripts/restore_environment.mjs --project-root <项目根>` 恢复环境；版本变化先预演，再显式 `--upgrade` 更新 `skillUtils`；不要在项目内手工同步、导出或覆盖共享 Skill。\n\n项目实例只消费已提交的 `scripts/lib/*.mjs` 和 `scripts/vendor/*.mjs`。模板发布、Skill 投影生成、上游来源验证和公开导出均属于 Harness 模板源维护，不在本项目执行。");
   await put(o.targetDir, "docs/agents/gitlab-workflow-skills.md", "# GitLab 工作流\n\n本项目不分发 GitLab 包装脚本。需要查看 MR、Pipeline 或 CI 时，使用已认证的 `glab`，并先确认当前仓库的 `origin` 指向目标 GitLab 项目。\n\n常用只读命令：\n\n```bash\ngit status --short --branch\nglab mr list\nglab ci list\nglab ci status\n```\n\n创建分支、commit、push、MR 或触发 Pipeline 都必须遵守 `AGENTS.md` 的显式授权和 checkpoint 规则。Token 只通过 `glab auth login` 或环境变量管理，不写入仓库文件。");
   for (const relative of PROJECT_SCRIPT_FILES) await cp(path.join(HARNESS_ROOT, "scripts", relative), path.join(o.targetDir, "scripts", relative));
   for (const relative of ["lib", "vendor"]) await cp(path.join(HARNESS_ROOT, "scripts", relative), path.join(o.targetDir, "scripts", relative), { recursive: true });

@@ -1,13 +1,13 @@
 ---
 name: code-review
-description: Use when the user wants to review a branch, PR, committed candidate, uncommitted work-in-progress changes, or changes since a fixed point.
+description: Use when the user wants to review a branch, PR, committed candidate, uncommitted work-in-progress changes, or changes since a fixed point. For YSS implementation, Standards must load Slice contract required_skills plus specialist check inputs such as alibaba-java-code-style and yss-ui; do not add a second generic review skill.
 ---
 
 Review of a pinned candidate against a fixed point on two core axes, plus UI fidelity when UI is in scope:
 
-- **Standards** — does the code conform to this repo's documented coding standards?
+- **Standards** — does the code conform to this repo's documented coding standards **and**, for YSS slices, the specialist check inputs compiled in [yss-review-standards.md](references/yss-review-standards.md)?
 - **Spec** — does the code faithfully implement the originating issue / spec?
-- **UI fidelity** (only when the change has UI impact) — does the candidate match the confirmed prototype and `yss-design-system` / `yss-ui`? Type-check or claiming "already aligned" is not a pass. Invoke those skills' verification notes; do not collapse this axis into Standards or Spec.
+- **UI fidelity** (only when the change has UI impact) — does the candidate match the confirmed prototype and `yss-design-system` / `yss-ui`? Type-check or claiming "already aligned" is not a pass. Invoke those skills' verification notes; do not collapse this axis into Standards or Spec. YSS page-module conventions stay on Standards.
 
 Standards and Spec run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. When UI is in scope, add a separate UI fidelity pass after those two reports (do not merge it into either axis).
 
@@ -45,7 +45,7 @@ commit_list_command: <command>
 
 For a Committed candidate, resolve `HEAD` to an immutable commit and tree before review. Its manifest must include `merge_base`, `tracked_diff_command` and `commit_list_command`. For a Worktree candidate, the manifest must additionally include `untracked_inventory_command`, `untracked_diff_command` and the exact `untracked_files` inventory.
 
-For a Worktree candidate, capture the tracked binary diff and every untracked file's bytes once into an immutable snapshot, compute `candidate_digest`, and make that **captured candidate** available to both reviewers. The following is normative, not illustrative: use the `yss-worktree-candidate-v1` byte stream. Start with ASCII `YSS-WORKTREE-CANDIDATE-V1` followed by one NUL byte. Append one tracked record: byte `0x54`, unsigned 64-bit big-endian binary-diff byte length, then the exact stdout bytes from `git diff --no-ext-diff --binary --full-index <merge-base>`. Then append one untracked record for each NUL-delimited raw path from `git ls-files -z --others --exclude-standard`, sorted bytewise by the raw path: byte `0x55`, unsigned 64-bit big-endian path length, raw path bytes, unsigned 32-bit big-endian `lstat` mode, entry-kind byte (`0x52` regular or `0x4c` symlink), unsigned 64-bit big-endian content length, then raw regular-file bytes or raw symlink-target bytes. Other entry kinds block capture. This is the sole length-prefixed framing and bytewise path order for the digest. SHA-256 is calculated over exactly this stream. The immutable snapshot stores `candidate-manifest.yaml`, `tracked.diff` and the `untracked/` bytes under the digest identity; both reviewers must consume those captured bytes and must not independently reread a live worktree.
+For a Worktree candidate, capture the tracked binary diff and every untracked file's bytes once into an immutable snapshot, compute `candidate_digest`, and make that **captured candidate** available to both reviewers. The following is normative, not illustrative: use the `yss-worktree-candidate-v1` byte stream. Start with ASCII `YSS-WORKTREE-CANDIDATE-V1` followed by one NUL byte. Append one tracked record: byte `0x54`, unsigned 64-bit big-endian binary-diff byte length, then the exact stdout bytes from `git diff --no-ext-diff --binary --full-index <merge-base>`. Then append one untracked record for each NUL-delimited raw path from `git ls-files -z --others --exclude-standard`, sorted bytewise by the raw path: byte `0x55`, unsigned 64-bit big-endian path length, raw path bytes, unsigned 32-bit big-endian `lstat` mode, entry-kind byte (`0x52` regular or `0x4c` symlink), unsigned 64-bit big-endian content length, then raw regular-file bytes or raw symlink-target bytes. Other entry kinds block capture. This is the sole length-prefixed framing and bytewise path order for the digest. SHA-256 is calculated over exactly this stream. New captures use a previously nonexistent directory under `.template-source/evidence/maintenance/`, land atomically, and store exactly `candidate-manifest.yaml`, `candidate.bin` and `tracked.diff`; `candidate.bin` already contains every untracked byte, so do not duplicate hundreds of `untracked-content/000xxx` files. Explicit exclusions are fail-closed to `.template-source/evidence/maintenance/` evidence and cannot exclude implementation or authority assets. Historical per-file snapshots remain readable. Both reviewers must consume the captured stream and must not independently treat a live worktree as the reviewed candidate.
 
 Before going further, confirm the fixed point and merge-base resolve. A committed candidate must have a non-empty committed diff. A Worktree candidate is non-empty when either its tracked diff or untracked inventory is non-empty. A bad ref, missing candidate part or empty candidate should fail here — not inside two parallel sub-agents. Do not silently downgrade Worktree review to `HEAD`-only review.
 
@@ -60,7 +60,9 @@ Look for the originating spec, in this order:
 
 ### 3. Identify the standards sources
 
-Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
+Compile sources **before** spawning reviewers. For YSS implementation candidates follow [yss-review-standards.md](references/yss-review-standards.md): run machine checks that exist in the implementation repo; then collect repo docs (`CODING_STANDARDS.md` / `CONTRIBUTING.md` if present), every Slice `required_skills` skill file, the impact-conditioned specialist inputs (`alibaba-java-code-style`, `yss-ui`, `yss-domain`, …), and `docs/templates/review-report-template.md`. Missing applicable coverage is `missing_evidence`, not a pass.
+
+Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`, remains a source. It does **not** replace YSS or Alibaba specialist inputs.
 
 On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
 
@@ -87,8 +89,9 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 **Standards sub-agent prompt** — include:
 
 - The full candidate manifest, captured candidate, `candidate_digest`, diff/inventory commands and commit list. For Worktree candidates, explicitly include every untracked file.
-- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
-- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
+- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full. Paste Fowler smells in full. For YSS specialist inputs, pass the exact skill file paths; the reviewer must read them and cite `skill + rule + location`. Do not summarise away mandatory Alibaba or YSS violations to fit a word cap. The 400-word cap applies only to the Fowler smell section.
+- Machine-check commands, exit codes and evidence from step 3. Tooling failure is a hard Standards violation.
+- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard or a required YSS / Alibaba specialist rule: cite the skill or file and the rule; (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard and mandatory specialist breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything the machine checks already enforced. Smell section under 400 words; specialist findings have no word cap."
 
 **Spec sub-agent prompt** — include:
 
@@ -100,7 +103,9 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 
 ### 5. Aggregate
 
-Present the reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. If UI is in scope, add `## UI fidelity` from the separate pass. Do **not** merge or rerank findings — the axes are deliberately separate (see _Why separate axes_).
+For template-maintenance task packages carrying `review_round`, preserve the frozen scope and apply the two-round convergence contract. A hard requirement added during review must cite a rule that already applied when the candidate was frozen; otherwise report it as `judgement-call` for the backlog. Round 1 blocking findings return to the implementer and require a new digest plus all review axes. If Round 2 still has an open `violation`, `drift`, or `new_impacts`, return `needs-human` and stop; do not silently start Round 3. Candidate byte changes invalidate every earlier axis report.
+
+Present the reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. If UI is in scope, add `## UI fidelity` from the separate pass. Fill `docs/templates/review-report-template.md` specialist tables as part of Standards evidence, not a fourth axis. Do **not** merge or rerank findings — the axes are deliberately separate (see _Why separate axes_). A YSS candidate with blank applicable specialist rows, skipped `required_skills`, or unaddressed mandatory violations is `blocked`, not `completed`. Do not close findings by writing implementation in the review session. `violation` / machine-check failure / blank applicable rows go back to the implementer on the original contract path, then recapture the candidate and rerun every axis. `drift` / `new_impacts` / `required_skills` mismatch mark the contract `stale` and return to 实现合同编译器; do not keep coding on the old contract. `not-applicable` is only for untriggered impacts; mandatory gates have no waiver, only repair or a complete `seam-deferred` record.
 
 For Worktree mode, recapture the candidate digest after both reports return. If it differs from `candidate_digest`, mark both reports as reviewing a **stale candidate** and return `blocked`; the caller may start a new review against a new capture, but this invocation must not aggregate findings from different bytes. Recheck the same digest again at the completion/checkpoint boundary.
 

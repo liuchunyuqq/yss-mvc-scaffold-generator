@@ -23,7 +23,7 @@ codex plugin add yss-mvc-scaffold-generator@personal
 ## 插件源与更新
 
 插件中的 `yss-mvc-scaffold-generator` Skill 以
-`C:\project_self\localskill\yss-spec-project-template\.agents\skills\yss-mvc-scaffold-generator`
+`../yss-spec-project-template/.agents/skills/yss-mvc-scaffold-generator`
 为唯一初始化和更新来源，来源合同记录在 `source.json`。
 
 更新插件前运行：
@@ -34,3 +34,11 @@ codex plugin add yss-mvc-scaffold-generator@personal
 ```
 
 同步脚本会先确认源仓库为 `template-source`，再复制 canonical Skill，并在 `-Check` 模式下按 SHA-256 校验文件集合和内容。不要直接维护插件内的 Skill 副本。
+
+## 恢复已克隆 MVC 项目的环境
+
+安装同一团队发行版本后，使用本插件要求“为 D:\work\analysis-service 恢复相邻 skillUtils”。插件执行 `scripts/restore_environment.mjs --project-root <项目根> --dry-run`，再执行恢复。已有非空业务目录受支持；Java、POM、Git 和业务治理资产不重新初始化。
+
+skillUtils 按 MVC 专属清单选择有效 skills 并重新生成平台投影；基座 DDD skills 不被修改。`--check` 为只读比较，版本变化须显式 `--upgrade`，本地内容漂移不能覆盖。旧项目缺少 MVC 身份或工具包缺少完整性基线时返回迁移需求。文件就绪不代表目标 Agent 已实际发现技能。
+
+维护时先改基座 MVC skill，再运行同步脚本。默认基座为相邻目录，可用 `-SourceRepository` 指定位置。同步范围由基座 MVC 的 `references/plugin-inputs.json` 与环境清单共同决定；`mvc-source-manifest.json` 记录源 commit 和实际分发文件哈希。该 commit 只标识基线，具体同步内容以文件哈希为准，可能包含尚未提交的维护修改。
