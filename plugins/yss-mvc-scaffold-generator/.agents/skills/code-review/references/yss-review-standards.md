@@ -1,5 +1,7 @@
 # YSS 审查标准源与机器检查
 
+新任务按 docs/process/acceptance-policy.yaml 执行：以下检查维度按实际影响消费，不逐行填空表；单个独立 Reviewer 可覆盖所有适用维度。固定双审查者、全量候选打包和逐项批准规则仅用于 v1 历史兼容。
+
 本文件只服务唯一默认审查技能 `code-review`。Alibaba Java、YSS 前端 / 后端 skill 是 **Standards 轴的专项检查输入**，不是第二个通用审查 skill。
 
 权威接线：`yss-product-lifecycle/references/orchestration-contract.yaml` 的 `work-unit.code-review.review_standards_route` 与 `review_input`。报告形状：`docs/templates/review-report-template.md`。

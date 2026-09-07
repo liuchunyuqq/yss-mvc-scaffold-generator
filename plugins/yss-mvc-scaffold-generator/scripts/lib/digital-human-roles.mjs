@@ -312,7 +312,7 @@ export function validateDigitalHumanRoles(doc, { skillIds, stageIds, gateIds, ar
 
   const policy = doc.gate_policy;
   if (!policy || typeof policy !== "object") fail("缺少 gate_policy");
-  if (policy.default_if_unlisted !== "biological-human") fail("default_if_unlisted 必须为 biological-human");
+  if (!["biological-human", "policy-diagnostic"].includes(policy.default_if_unlisted)) fail("default_if_unlisted 必须为 biological-human（历史）或 policy-diagnostic");
   if (policy.runtime_side_effect_approval !== "biological-human") fail("runtime_side_effect_approval 必须为 biological-human");
   if (policy.commercial_contract !== "biological-human") fail("commercial_contract 必须为 biological-human");
   if (policy.unlisted_kept_biological) {

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "验收驱动生命周期 Checkpoint v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "goal", "baseline_ref", "baseline_digest", "acceptance_ids", "status", "slices", "blockers"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "policy_id": {"const": "acceptance-driven-v1"},
+    "goal": {"type": "string", "minLength": 1},
+    "baseline_ref": {"type": "string", "minLength": 1},
+    "baseline_digest": {"type": "string", "minLength": 1},
+    "acceptance_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "status": {"enum": ["routing", "running", "reviewing", "awaiting-input", "blocked", "completed"]},
+    "slices": {"type": "array", "items": {"type": "object"}},
+    "overall": {"type": "object"},
+    "pause": {"type": "object"},
+    "blockers": {"type": "array"},
+    "legacy_ref": {"type": "string"},
+    "next_work_unit": {"type": ["string", "null"]}
+  }
+}

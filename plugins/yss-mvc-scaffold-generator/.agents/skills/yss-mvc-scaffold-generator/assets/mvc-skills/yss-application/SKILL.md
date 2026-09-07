@@ -7,13 +7,13 @@ description: 用于 YSS Java 8 MVC 后端固定六模块中的 yss-application �
 
 用例接口和编排位于 `core/.../core/service`，执行 seam 位于 `core/.../core/gateway`；沿用现有 `AnalysisQueryService` / `AnalysisQueryExecutor` 模式。core 可以依赖 client，不能依赖 Spring MVC、具体数据源或 Oracle 驱动。
 
-通过构造器注入已有执行接口，由 server 装配 adapter 实现。事务边界按批准工程合同放在可控制实际数据库事务的位置；先确认依赖和代理，不机械地为纯 core 类添加 Spring 注解。涉及 DTO 转换时消费 mapstruct，POJO 样板按 lombok 和项目现有约定处理。
+通过构造器注入已有执行接口，由 server 装配 adapter 实现。事务边界按当前 validated 工程合同放在可控制实际数据库事务的位置；先检查依赖和代理，不机械地为纯 core 类添加 Spring 注解。涉及 DTO 转换时消费 mapstruct，POJO 样板按 lombok 和项目现有约定处理。
 
 验收覆盖输入、空结果、分页、执行器失败和事务边界等实际命中行为。MVC 用例不要求 Domain Aggregate、Domain Service 或 target-domain-model。
 
 ## 实现合同
 
-先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和已批准且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。缺少实现前置条件时返回 blocked；不因环境恢复自动批准合同。
+先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和技术校验通过（validated）且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。按 docs/process/acceptance-policy.yaml 在目标授权内自主补齐技术输入和刷新合同，无需逐项批准。只有真实业务歧义或必要外部信息缺失才提问；环境恢复本身不证明业务验收通过。
 
 固定职责：server 装配与 HTTP，client 稳定 DTO，core 用例与执行 seam，repository 持久化，adapter 外部/数据库执行器，feign-client 远程客户端。以项目 POM 已有依赖方向为准；需要增加模块依赖时先更新工程合同，不能引入循环依赖。不得创建 DDD application/domain/infrastructure 模块或前端工程。
 

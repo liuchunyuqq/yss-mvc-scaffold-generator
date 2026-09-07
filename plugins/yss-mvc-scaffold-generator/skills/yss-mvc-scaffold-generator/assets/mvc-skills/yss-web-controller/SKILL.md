@@ -5,15 +5,15 @@ description: 用于 YSS Java 8 MVC 后端固定六模块中的 yss-web-controlle
 
 # MVC HTTP Controller
 
-Controller 位于 `server/.../server/controller`，公开请求和响应 DTO 位于 `client` 现有包，调用 core 用例服务。先消费冻结 OpenAPI、已批准 Slice 合同、yss-dto wire profile、yss-validation 和命中的 yss-exception，不自行改变已有响应包装。
+Controller 位于 `server/.../server/controller`，公开请求和响应 DTO 位于 `client` 现有包，调用 core 用例服务。先消费冻结 OpenAPI、当前 validated Slice 合同、yss-dto wire profile、yss-validation 和命中的 yss-exception，不自行改变已有响应包装。
 
 沿用当前工程使用的 javax validation 与构造器注入。校验请求 allowlist、分页、响应 Wrapper 和错误映射；主要 DTO 不写成 Controller 内部类。类和公开方法写简体中文 Javadoc，作者为真实 Git user.name，日期 yyyy/MM/dd HH:mm，按签名完整写 @param/@return。
 
-不调用基座 DDD 的 generate_controller.mjs；该脚本的 Web Adapter 路径与生成合同不能用于本 MVC 工程。按已批准 seam 逐切片实现 Controller 并执行 HTTP 契约测试。需要机械批量生成时先提供 MVC 专属生成合同与验证过的生成器，不借用 DDD 脚本试跑。
+不调用基座 DDD 的 generate_controller.mjs；该脚本的 Web Adapter 路径与生成合同不能用于本 MVC 工程。按需求与公开接口确定的 seam 逐切片实现 Controller 并执行 HTTP 契约测试。需要机械批量生成时先提供 MVC 专属生成合同与验证过的生成器，不借用 DDD 脚本试跑。
 
 ## 实现合同
 
-先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和已批准且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。缺少实现前置条件时返回 blocked；不因环境恢复自动批准合同。
+先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和技术校验通过（validated）且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。按 docs/process/acceptance-policy.yaml 在目标授权内自主补齐技术输入和刷新合同，无需逐项批准。只有真实业务歧义或必要外部信息缺失才提问；环境恢复本身不证明业务验收通过。
 
 固定职责：server 装配与 HTTP，client 稳定 DTO，core 用例与执行 seam，repository 持久化，adapter 外部/数据库执行器，feign-client 远程客户端。以项目 POM 已有依赖方向为准；需要增加模块依赖时先更新工程合同，不能引入循环依赖。不得创建 DDD application/domain/infrastructure 模块或前端工程。
 

@@ -169,9 +169,10 @@ export function renderWorkUnits(registry) {
 export function replaceRegion(filePath, startMarker, endMarker, replacement, { check = false } = {}) {
   const body = readFileSync(filePath, "utf8");
   const escaped = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const expression = new RegExp(`${escaped(startMarker)}[\\s\\S]*?${escaped(endMarker)}\\n?`);
+  const expression = new RegExp(`${escaped(startMarker)}[\\s\\S]*?${escaped(endMarker)}(?:\\r?\\n)?`);
   if (!expression.test(body)) fail(`派生文档缺少生成区: ${path.relative(ROOT, filePath)}`);
-  const expected = body.replace(expression, replacement);
+  const newline = body.includes('\r\n') ? '\r\n' : '\n';
+  const expected = body.replace(expression, replacement.replace(/\r?\n/g, newline));
   if (check) {
     if (expected !== body) fail(`派生文档与注册表漂移: ${path.relative(ROOT, filePath)}；运行 scripts/generate-lifecycle-artifacts --write`);
   } else {

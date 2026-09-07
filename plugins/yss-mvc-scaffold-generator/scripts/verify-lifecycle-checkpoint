@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseDocument } from "./vendor/yaml.mjs";
 import { assertCheckpointApprovals } from "./lib/approval-record.mjs";
 import { validateJsonSchema } from "./lib/json-schema.mjs";
+import { validateAcceptanceCheckpoint } from "./lib/acceptance-policy.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(root, "docs/process/schemas/lifecycle-checkpoint.schema.json");
@@ -16,8 +17,16 @@ try {
   const document = parseDocument(readFileSync(sourcePath, "utf8"), { maxAliasCount: 0, uniqueKeys: true });
   if (document.errors.length) throw new TypeError(document.errors[0].message);
   const value = document.toJS({ maxAliasCount: 0 });
-  validateJsonSchema(value, schemaPath, { label: "生命周期 checkpoint JSON Schema" });
-  assertCheckpointApprovals(value, sourcePath);
+  const effectiveSchema = value?.schema_version === 2 ? path.join(root, "docs/process/schemas/lifecycle-checkpoint-v2.schema.json") : schemaPath;
+  validateJsonSchema(value, effectiveSchema, { label: "生命周期 checkpoint JSON Schema" });
+  if (value.schema_version === 2) {
+    const errors = validateAcceptanceCheckpoint(value, { resolve: (ref) => {
+      const doc = parseDocument(readFileSync(path.resolve(root, ref), "utf8"), { uniqueKeys: true });
+      if (doc.errors.length) throw new Error(doc.errors[0].message);
+      return doc.toJS();
+    }});
+    if (errors.length) throw new Error(errors.join("\n"));
+  } else assertCheckpointApprovals(value, sourcePath);
   process.stdout.write("生命周期 checkpoint 验证通过\n");
 } catch (error) {
   process.stderr.write(`生命周期 checkpoint 验证失败: ${error.message}\n`);

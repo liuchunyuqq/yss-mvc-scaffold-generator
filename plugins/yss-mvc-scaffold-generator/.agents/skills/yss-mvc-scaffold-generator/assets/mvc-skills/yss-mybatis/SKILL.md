@@ -7,13 +7,13 @@ description: 用于 YSS Java 8 MVC 后端固定六模块中的 yss-mybatis 实�
 
 本 Profile 固定 YSS MyBatis-Plus、Oracle 或 OceanBase Oracle。先查项目依赖和 yss-skill-source-index-refresh 定位的组件源码，确认实际基类、注解、分页机制和参数语义，不按框架名称猜测。
 
-Mapper/XML 在 repository，数据库执行与 Mock 执行沿用 adapter seam。分页参数通过批准 DTO 与执行接口传递，不要求 Application Query Port / Infrastructure 分层。标准 CRUD 复用 MP；复杂查询使用 XML 与参数绑定，禁止拼接外部输入。主键 IdType.ASSIGN_ID。
+Mapper/XML 在 repository，数据库执行与 Mock 执行沿用 adapter seam。分页参数通过当前契约定义的 DTO 与执行接口传递，不要求 Application Query Port / Infrastructure 分层。标准 CRUD 复用 MP；复杂查询使用 XML 与参数绑定，禁止拼接外部输入。主键 IdType.ASSIGN_ID。
 
 核验 MapperScan、XML namespace/方法签名、结果映射、分页插件、数据源切换先于事务。Mock 不启用数据库 Bean，不以 Mock 通过代替真实 Mapper 注册和数据库查询证据。组件原始源码事实读取对应 source-index，不引入未验证的普通 MyBatis 替代方案。
 
 ## 实现合同
 
-先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和已批准且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。缺少实现前置条件时返回 blocked；不因环境恢复自动批准合同。
+先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和技术校验通过（validated）且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。按 docs/process/acceptance-policy.yaml 在目标授权内自主补齐技术输入和刷新合同，无需逐项批准。只有真实业务歧义或必要外部信息缺失才提问；环境恢复本身不证明业务验收通过。
 
 固定职责：server 装配与 HTTP，client 稳定 DTO，core 用例与执行 seam，repository 持久化，adapter 外部/数据库执行器，feign-client 远程客户端。以项目 POM 已有依赖方向为准；需要增加模块依赖时先更新工程合同，不能引入循环依赖。不得创建 DDD application/domain/infrastructure 模块或前端工程。
 

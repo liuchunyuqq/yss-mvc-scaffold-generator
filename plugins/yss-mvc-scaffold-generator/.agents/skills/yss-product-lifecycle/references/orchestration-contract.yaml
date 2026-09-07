@@ -1,5 +1,11 @@
 schema_version: 1
-supported_state_schema_versions: [1]
+supported_state_schema_versions: [1, 2]
+execution_policy:
+  default: docs/process/acceptance-policy.yaml
+  v2_validator: scripts/lib/acceptance-policy.mjs
+  v1_rules_below: read-only-compatibility
+  default_write_mode: orchestrate
+  review_scopes: [slice, overall]
 
 implementation_path_policy:
   harness_layout:
@@ -21,8 +27,8 @@ review_verification:
 
 checkpoint_policy:
   strategy: consolidated
-  flush_on: [human_pause, handoff, implementation_entry, merge, release]
-  flush_immediately_on: [blocked, responsibility_changed, asset_approval]
+  flush_on: [slice-completed, input-required, blocked, handoff, delivery]
+  flush_immediately_on: [blocked, responsibility_changed]
   preserve_stage_causality: true
   required_stage_trace_fields: [stage, upstream_refs, artifact_refs, gate_decisions, downstream_impacts]
 

@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {HARNESS_ROOT,SKILL_ROOT} from './lib/runtime.mjs';
 import {manifest} from './lib/mvc-environment.mjs';
+const isLocalMetadata = rel => rel.endsWith('.iml') || rel.split(/[\\/]/).includes('.idea');
 const digest=b=>createHash('sha256').update(b).digest('hex');
 async function inventory(root,prefix='') {
   let all={};for(const e of (await readdir(path.join(root,prefix),{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))) {
@@ -27,14 +28,14 @@ try {
     const roots=[...inputs.files,...inputs.directories,...inputs.script_files.map(x=>`scripts/${x}`),...inputs.generation_assets,...m.shared_skills.map(x=>`.agents/skills/${x}`),'.agents/skills/yss-mvc-scaffold-generator'];
     for(const rel of roots) {
       if(path.isAbsolute(rel)||rel.split('/').includes('..'))throw new Error('UNSAFE_SOURCE_PATH');
-      await cp(path.join(HARNESS_ROOT,rel),path.join(staging,rel),{recursive:true,dereference:true,filter:p=>!p.includes('__pycache__')});
+      await cp(path.join(HARNESS_ROOT,rel),path.join(staging,rel),{recursive:true,dereference:true,filter:p=>!p.includes('__pycache__')&&!isLocalMetadata(p)});
     }
-    await cp(SKILL_ROOT,path.join(staging,'skills/yss-mvc-scaffold-generator'),{recursive:true});
+    await cp(SKILL_ROOT,path.join(staging,'skills/yss-mvc-scaffold-generator'),{recursive:true,filter:p=>!isLocalMetadata(p)});
     const expected=await inventory(staging);
     const previous=JSON.parse(await readFile(path.join(target,'mvc-source-manifest.json'),'utf8').catch(e=>{if(e.code==='ENOENT')return '{"files":{}}';throw e;}));
     const actual=await inventory(target);
     const managedRoots=['.agents/skills/','skills/','.claude/skills/','.codex/skills/','.cursor/skills/','.hermes/skills/','.pi/skills/','.qoder/skills/','.trae/skills/'];
-    const old=Object.keys(actual).filter(x=>managedRoots.some(r=>x.startsWith(r))||x in previous.files);
+    const old=Object.keys(actual).filter(x=>x in previous.files&&!isLocalMetadata(x));
     const obsolete=old.filter(x=>!(x in expected));
     const changed=Object.keys(expected).filter(x=>actual[x]!==expected[x]);
     if(check) {if(changed.length||obsolete.length)throw new Error(`SYNC_DRIFT: changed=${changed.join(',')} obsolete=${obsolete.join(',')}`);console.log(`MVC source sync verified: ${Object.keys(expected).length} files`);}

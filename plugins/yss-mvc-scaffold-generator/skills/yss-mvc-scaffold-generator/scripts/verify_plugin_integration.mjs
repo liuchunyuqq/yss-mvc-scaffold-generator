@@ -9,11 +9,20 @@ const source=path.resolve(process.argv[2]);
 const plugin=path.join(base,'plugins/yss-mvc-scaffold-generator');
 function run(exe,args,ok=true){const r=spawnSync(exe,args,{encoding:'utf8',env:{...process.env,GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'user.name',GIT_CONFIG_VALUE_0:'MVC Fixture',GIT_CONFIG_KEY_1:'user.email',GIT_CONFIG_VALUE_1:'mvc-fixture@example.invalid'}});if(ok)assert.equal(r.status,0,r.stderr||r.error?.message);return r;}
 try {
+ run('git',['-C',base,'init','--initial-branch=main']);
+ await writeFile(path.join(base,'.export-fixture'),'isolated export fixture');run('git',['-C',base,'add','.export-fixture']);run('git',['-C',base,'commit','-m','isolated export fixture']);
  await cp(source,plugin,{recursive:true});
  const scripts=path.join(plugin,'skills/yss-mvc-scaffold-generator/scripts');
+ const localFile=path.join(plugin,'.agents/skills/local-only.iml');await writeFile(localFile,'local IDE metadata');
+ run(process.execPath,[path.join(scripts,'export_plugin.mjs'),'--target',plugin]);
+ assert.equal(await readFile(localFile,'utf8'),'local IDE metadata');
  const origin=path.join(base,'work1/project');await mkdir(path.dirname(origin),{recursive:true});
  run(process.execPath,[path.join(scripts,'generate_project.mjs'),'--project-name','mvc-isolated','--base-package','com.yss.fixture','--target-dir',origin,'--with-mock']);
  run(process.execPath,[path.join(scripts,'verify_project.mjs'),'--project-root',origin]);
+ run(process.execPath,[path.join(origin,'scripts/verify-mvc-governance-profile.mjs'),origin]);
+ const preview=run(process.execPath,[path.join(scripts,'migrate_governance.mjs'),'--project-root',origin,'--dry-run']);
+ assert.deepEqual(JSON.parse(preview.stdout).changes,[]);
+ const agentRules=await readFile(path.join(origin,'AGENTS.md'),'utf8');assert.match(agentRules,/acceptance-policy/);assert.doesNotMatch(agentRules,/不可裁剪的主链/);
  run('git',['-C',origin,'add','.']);
  run('git',['-C',origin,'commit','-m','test fixture']);
  const clone=path.join(base,'work2/project');await mkdir(path.dirname(clone),{recursive:true});run('git',['clone',origin,clone]);

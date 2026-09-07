@@ -7,6 +7,8 @@ owner: ai
 
 # 审查报告：<功能名称>
 
+新任务按 docs/process/acceptance-policy.yaml 执行：以下检查维度按实际影响消费，不逐行填空表；单个独立 Reviewer 可覆盖所有适用维度。固定双审查者、全量候选打包和逐项批准规则仅用于 v1 历史兼容。
+
 ## 结论
 
 Approved / Changes requested / Blocked

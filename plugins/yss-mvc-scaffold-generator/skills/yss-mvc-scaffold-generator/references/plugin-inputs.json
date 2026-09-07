@@ -17,7 +17,7 @@
     "scripts/vendor"
   ],
   "script_files": [
-    "check-agent-environment.mjs",
+    "acceptance-action.mjs", "check-agent-environment.mjs",
     "implementation-path-policy",
     "repository-mode",
     "repository-scope-policy",

@@ -178,17 +178,17 @@ const profiles = {
   lifecycle: {
     message: "六类生命周期压力场景验证通过",
     files: [".agents/skills/yss-product-lifecycle/SKILL.md", ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "docs/process/lifecycle-registry.yaml"],
-    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "template-source-product-artifact-forbidden"], [".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "ready-for-agent"]]
+    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "template-source"], [".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "ready-for-agent"]]
   },
   matt: {
     message: "Matt/YSS 集成压力场景验证通过",
     files: [".agents/skills/yss-product-lifecycle/references/matt-yss-adapter.md", ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "docs/process/templates/lifecycle-checkpoint-template.yaml", "docs/process/templates/frontend-implementation-plan-template.yaml", "docs/process/templates/frontend-implementation-verification-template.yaml"],
-    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "Workflow Execution Result"]]
+    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "schema v2"]]
   },
   prototype: {
     message: "原型到后端脚手架及后续 YSS 代码生成压力场景验证通过",
     files: [".agents/skills/yss-ddd-scaffold-generator/scripts/generate_scaffold.mjs", ".agents/skills/yss-implementation-contract-compiler/references/compiler-contract.yaml"],
-    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "controlled-generation"]]
+    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "validated"]]
   },
   implementationContractCompiler: {
     message: "YSS implementation contract compiler stage 7 scenarios passed",
@@ -230,7 +230,7 @@ export function runScenario(name) {
   for (const file of profile.files) ensure(exists(file), `缺少场景资产: ${file}`);
   for (const [file, marker] of profile.markers) ensure(read(file).includes(marker), `场景资产缺少标记 ${marker}: ${file}`);
   if (name === "lifecycle") {
-    const result = spawnSync("scripts/verify-lifecycle-registry", [], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["scripts/verify-lifecycle-registry", ], { cwd: root, encoding: "utf8" });
     ensure(result.status === 0, result.stderr || result.stdout);
     const registry = parseDocument(read("docs/process/lifecycle-registry.yaml"), { uniqueKeys: true }).toJS({ maxAliasCount: 0 });
     const releaseGate = registry.gates.find((gate) => gate.id === "gate.release-ready");
@@ -247,7 +247,7 @@ export function runScenario(name) {
     ]), "生命周期转换图缺少 Spec/原型/技术分析到实现的越级阻断");
     ensure(lifecycleTransitionContract.next_routes["work-unit.ticket-decomposition"]?.includes("work-unit.slice-implementation"), "转换校验器未允许 Ticket 正式化后进入实现");
     ensure(contract.release_readiness?.conditional?.ui_impact?.includes("gate.frontend-implementation-verified") && contract.frontend_implementation_plan?.acceptance?.includes("no_template_placeholders"), "发布公式或前端计划实质校验不完整");
-    const templateRejected = spawnSync("scripts/verify-frontend-implementation-evidence", ["docs/process/templates/frontend-implementation-plan-template.yaml"], { cwd: root, encoding: "utf8" });
+    const templateRejected = spawnSync(process.execPath, ["scripts/verify-frontend-implementation-evidence", "docs/process/templates/frontend-implementation-plan-template.yaml"], { cwd: root, encoding: "utf8" });
     ensure(templateRejected.status !== 0 && templateRejected.stderr.includes("template: false"), "前端实现计划占位模板可冒充正式批准证据");
   }
   if (name === "matt") {
@@ -379,7 +379,7 @@ export function runScenario(name) {
     }
   }
   if (name === "yssDtoWire") {
-    const result = spawnSync("scripts/verify-yss-dto-openapi-profile", [], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["scripts/verify-yss-dto-openapi-profile", ], { cwd: root, encoding: "utf8" });
     ensure(result.status === 0, result.stderr || result.stdout);
   }
   process.stdout.write(`${profile.message}\n`);

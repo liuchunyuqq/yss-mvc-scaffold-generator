@@ -1,4 +1,6 @@
 schema_version: 2
+execution_policy: docs/process/acceptance-policy.yaml
+validated_contract_requires_human_approval: false
 compiled_by: yss-implementation-contract-compiler
 approved_by: yss-product-lifecycle
 capability_source: docs/agents/yss-skill-registry.yaml

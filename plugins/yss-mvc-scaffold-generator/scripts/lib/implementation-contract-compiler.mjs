@@ -187,8 +187,10 @@ export function validateExecutionResult(result, contract, current) {
   if (consumed.registry_digest !== resolution.registry_digest || consumed.compiler_contract_digest !== resolution.compiler_contract_digest) blockers.push("resolution-digest-mismatch");
   if (!Array.isArray(result.verification_results) || !result.verification_results.length) blockers.push("verification-not-executed");
   else for (const item of result.verification_results) {
-    if (!item?.command || item.exit_code === undefined || !item.executed_at) blockers.push("verification-result-incomplete");
+    if (!item?.command || !Number.isInteger(item.exit_code) || !item.executed_at) blockers.push("verification-result-incomplete");
+    if (item?.exit_code !== 0) blockers.push("verification-failed");
   }
+  if (["violation", "drift"].includes(result.status)) blockers.push(result.status);
   if (Array.isArray(result.new_impacts) && result.new_impacts.length) blockers.push("new-impacts");
   return { status: blockers.length ? "blocked" : "accepted", blockers: [...new Set(blockers)] };
 }

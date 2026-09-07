@@ -3,13 +3,17 @@ name: yss-implementation-contract-compiler
 description: Use when a YSS vertical slice is entering implementation, spans multiple frontend/backend/API areas, needs implementation readiness checked, or requires a minimal YSS skill set, Slice Implementation Contract, TDD mode, evidence plan, or reroute decision.
 ---
 
+## 默认项目执行策略
+
+新建与恢复的 project-instance 任务使用 `docs/process/acceptance-policy.yaml` 与 `docs/process/acceptance-driven-development.md`：目标授权内连续执行，切片独立 Review、整体 Review 和相关验证闭环；仅需求歧义、冲突、范围扩张或必要外部信息缺失时提问。下文逐资产批准、ready-for-human、全候选打包和固定会签规则仅适用于 schema v1 历史记录；新任务使用 schema v2，validated 表示技术校验通过，不写或伪造 approval-record。模板源维护规则保持适用。
+
 # YSS Implementation Contract Compiler
 
-阶段 7 的实现合同编译器。它把已批准的生命周期资产、垂直切片、capability 和窄 Recipe 编译为 `Slice Implementation Contract` v2 草案；不批准合同、不写业务代码、不设置 `ready-for-agent`。
+实现合同编译器把当前需求、垂直切片、capability 和窄 Recipe 编译为技术计划。新任务的计划校验通过使用 validated，编排器可直接安排实现；编译器不冒充用户批准，不写业务代码。
 
 ## 输入
 
-先读取 Spec、切片 Ticket、需求冻结、适用的原型确认、OpenAPI Freeze/no-impact、系统/数据架构、Design Review、Build Architecture Checklist、实现仓库和验证命令。输入缺失、未批准或 `stale` 时输出 `blocked`，交回 `yss-product-lifecycle`。
+先读 CONTEXT.md、需求验收条件、工程质量基线、切片、实现仓库和实际相关的接口/数据/页面约束。可自行补齐的技术输入自主分析；stale 先刷新并重编译，只有真正缺失外部事实或需求冲突才询问。不要为缺少旧批准记录阻塞。
 
 ## 编译循环
 
@@ -20,7 +24,7 @@ description: Use when a YSS vertical slice is entering implementation, spans mul
 5. 按“Recipe 声明顺序 → 依赖拓扑 → skill ID”确定性排序，去重 skill 并保留全部原因；冻结 Registry 与编译器合同 SHA-256。
 6. 为切片生成基线合同；为当前行为生成工作单元增量路由。
 7. 选择 `behavior-tdd` 或 `controlled-generation`。
-8. 输出 `draft`、`blocked` 或 `ready-for-lifecycle-review`，交生命周期编排器核验和持久化。
+8. 新任务技术校验通过输出 validated；不足时返回可执行修复动作。持久化后由编排器直接计算就绪。旧 draft / ready-for-lifecycle-review 仅用于历史读取。
 
 合同结构见 [slice-implementation-contract.md](references/slice-implementation-contract.md)，专项返回协议见 [yss-skill-execution-result.md](references/yss-skill-execution-result.md)。前端、后端和测试子任务必须由生命周期主控从批准的 Slice Contract 编译任务包；任务包 schema 为 `docs/process/schemas/subagent-task-package.schema.json`，技能列表必须来自 `taskPackageDefaults`，不能由编译器或执行 Agent 另行手写。
 
@@ -28,11 +32,11 @@ description: Use when a YSS vertical slice is entering implementation, spans mul
 
 - 编译器不得输出 `approved`、`ready-for-agent` 或 `completed`。
 - Registry、Slice Contract 或编译器合同 schema v1 一律拒绝并给出迁移到 v2 的提示；不自动升级，不提供旧技能名兼容。
-- `required_capabilities` 与 `required_skills` 必须同时冻结；Registry 或编译器摘要变化后合同立即 `stale`，重新编译后仍须交生命周期重新批准。
-- UI 影响缺少正式原型确认时，不得路由页面实现。
+- `required_capabilities` 与 `required_skills` 必须同时冻结；Registry 或编译器摘要变化后合同立即 `stale`，重新编译并检查受影响验收条件后自主继续。
+- UI 影响按验收需要形成可验证页面基线；真实交互歧义才提问。
 - Repository/数据模型影响缺少数据架构时，不得路由持久化实现。
 - 领域影响缺少批准且版本当前的 tactical-design contract 时，不得路由 Domain 实现；无领域影响必须记录 `not-applicable`。
-- API 变化必须回到生命周期 Draft/Review/Freeze；半成品 backend 不得冒充稳定 source of truth。
+- API 变化自主更新契约并验证消费者兼容性；半成品 backend 不得冒充稳定 source of truth。
 - 后端端到端切片必须包含 Application；对象/POJO 影响按契约自动补 `mapstruct`、`lombok`、`alibaba-java-code-style`。
 - Harness 内实现路径必须落在 `apps/backend/<project>/` 或 `apps/frontend/<project>/` 的具体项目目录；`apps/backend/`、`apps/frontend/` 只能作为容器，`app/backend/`、`app/frontend/` 及其子路径一律阻断。外部实现仓库使用其登记的真实项目根路径。`git-submodule` 使用 `implementation_path_policy: git-submodule-harness-apps`，空 gitlink、detached HEAD 或 `--force` 覆盖挂载点不得脚手架；`inspectWorkingTreeScope.writable` 必须为显式布尔值。
 - 当前用户、缓存、审计、Excel、分布式 ID、请求校验、错误映射、加解密或网关韧性命中时，必须按 `compiler-contract.yaml` 的 `impact_to_capabilities` 补齐入口 capability；不能只在 `boundaries.md` 中提及。仅复用已经验证的平台认证 / 授权能力不算 component impact，不自动增加权限专项 skill。

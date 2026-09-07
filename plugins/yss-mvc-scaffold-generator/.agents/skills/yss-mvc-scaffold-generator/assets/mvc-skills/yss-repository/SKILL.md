@@ -5,15 +5,15 @@ description: 用于 YSS Java 8 MVC 后端固定六模块中的 yss-repository �
 
 # MVC 持久化
 
-持久化模型、Mapper/Repository 和 XML 位于现有 `repository` 模块。实体字段来自批准的数据设计，使用 YSS MyBatis-Plus；标准 CRUD 使用既有 MP 基类，复杂 SQL 写 mapper.xml，主键策略 `IdType.ASSIGN_ID`。
+持久化模型、Mapper/Repository 和 XML 位于现有 `repository` 模块。实体字段来自当前数据设计，使用 YSS MyBatis-Plus；标准 CRUD 使用既有 MP 基类，复杂 SQL 写 mapper.xml，主键策略 `IdType.ASSIGN_ID`。
 
-读取 yss-mybatis、lombok；确有模型转换时读取 mapstruct。沿用已有 Mapper 扫描和 XML 资源路径，不新造 BaseRepository 抽象。数据库执行器通过已批准的依赖调用持久化组件；当前 adapter POM 未依赖 repository 时先登记依赖变更，不能让 core 反向依赖持久化。
+读取 yss-mybatis、lombok；确有模型转换时读取 mapstruct。沿用已有 Mapper 扫描和 XML 资源路径，不新造 BaseRepository 抽象。数据库执行器通过已登记的依赖调用持久化组件；当前 adapter POM 未依赖 repository 时先登记依赖变更，不能让 core 反向依赖持久化。
 
-用批准的字段和数据来源实现查询、绑定参数、分页和异常；不从 DDL 推导业务行为。此 MVC Profile 不要求 Domain Model、Domain GatewayImpl 或 Infrastructure 模块。非 Mock 集成验证应证明 Mapper Bean 注册；数据库条件不可用时记录阻塞，不能用 Mock 证明 SQL 正确。
+用验收基线定义的字段和数据来源实现查询、绑定参数、分页和异常；不从 DDL 推导业务行为。此 MVC Profile 不要求 Domain Model、Domain GatewayImpl 或 Infrastructure 模块。非 Mock 集成验证应证明 Mapper Bean 注册；数据库条件不可用时记录阻塞，不能用 Mock 证明 SQL 正确。
 
 ## 实现合同
 
-先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和已批准且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。缺少实现前置条件时返回 blocked；不因环境恢复自动批准合同。
+先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和技术校验通过（validated）且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。按 docs/process/acceptance-policy.yaml 在目标授权内自主补齐技术输入和刷新合同，无需逐项批准。只有真实业务歧义或必要外部信息缺失才提问；环境恢复本身不证明业务验收通过。
 
 固定职责：server 装配与 HTTP，client 稳定 DTO，core 用例与执行 seam，repository 持久化，adapter 外部/数据库执行器，feign-client 远程客户端。以项目 POM 已有依赖方向为准；需要增加模块依赖时先更新工程合同，不能引入循环依赖。不得创建 DDD application/domain/infrastructure 模块或前端工程。
 

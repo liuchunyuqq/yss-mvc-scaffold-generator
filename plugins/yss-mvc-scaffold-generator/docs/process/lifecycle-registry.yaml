@@ -1,4 +1,6 @@
 schema_version: 1
+execution_policy: docs/process/acceptance-policy.yaml
+legacy_gate_execution: checkpoint-v1-read-only
 registry_id: yss.lifecycle
 status: shadow
 description: >-

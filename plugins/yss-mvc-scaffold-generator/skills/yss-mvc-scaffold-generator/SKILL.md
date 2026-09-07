@@ -5,11 +5,15 @@ description: 从空目录初始化或为已克隆 MVC 项目恢复外置 skillUt
 
 # YSS MVC Scaffold Generator
 
-本 Skill 是 YSS MVC 数据分析项目的确定性机械生成器。它生成独立 `project-instance`、独立 Git 仓库，并将项目根直接作为 Maven 工程根，包含 `server`、`core`、`client`、`repository`、`adapter`、`feign-client` 六模块；业务功能仍须回到 `yss-product-lifecycle` 与 `yss-implementation-contract-compiler` 按垂直切片实现。
+本 Skill 是 YSS MVC 数据分析项目的确定性机械生成器。它生成独立 `project-instance`、独立 Git 仓库，并将项目根直接作为 Maven 工程根，包含 `server`、`core`、`client`、`repository`、`adapter`、`feign-client` 六模块；业务功能按 docs/process/acceptance-policy.yaml 自主推进并执行切片与整体独立 Review；旧逐资产批准不适用于新任务。业务功能仍须回到 `yss-product-lifecycle` 与 `yss-implementation-contract-compiler` 按垂直切片实现。
 
 生成器编排入口位于 `scripts/generate_project.mjs`，参数与环境解析、skillUtils 文件操作、项目治理封装和 Maven/Java 模板分别位于 `scripts/lib/`。初始化阶段只写入 staging 目录并在成功后原子重命名，不执行 Maven 或网络依赖下载。
 
 用户以“初始化新项目”进入时，由 `product-service-artifacts` 调用本生成器并默认附加 `docs/service/` 服务级研发产物；不要要求用户在提示词中另行说明“初始化产物”。未提供职责时生成 `skeleton`，不阻断工程创建。
+
+## 治理升级
+
+已有项目先运行 `node scripts/migrate_governance.mjs --project-root <项目根> --dry-run`，核对后使用 `--apply`。环境恢复不替代治理升级；迁移保留备份，用户自定义冲突不覆盖。
 
 ## 已有 MVC 项目恢复环境
 

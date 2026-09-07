@@ -14,14 +14,18 @@ domain_driven_design:
   status: not-applicable
   reason: 当前脚手架使用固定六模块 MVC 分层，不生成 DDD application/domain/infrastructure/adapter 分层。
 lifecycle:
+  execution_policy: docs/process/acceptance-policy.yaml
+  checkpoint_schema_version: 2
   required_work_units:
     - work-unit.entry-triage
+    - work-unit.slice-implementation
+    - work-unit.code-review
+  conditional_work_units:
     - work-unit.discovery-requirements
     - work-unit.spec-synthesis
     - work-unit.technical-analysis
     - work-unit.ticket-decomposition
-    - work-unit.slice-implementation
-    - work-unit.code-review
+  external_delivery_work_units:
     - work-unit.release-and-retrospective
   not_applicable_work_units:
     - work-unit.domain-strategy-design
@@ -32,9 +36,10 @@ lifecycle:
     backend_skills: [yss-web-controller, yss-application, yss-repository, yss-mybatis, yss-dto, yss-exception]
     forbidden_skills: [yss-domain, yss-frontend-scaffold-generator, yss-ui]
 verification:
+  environment_check: first-use-or-environment-change
+  slice_check: affected-checks
+  completion_check: integrated-acceptance
   required_commands:
-    - mvnw validate
-    - mvnw test
     - mvnw package
   required_evidence:
     - docs/.scratch/<feature>/verification/yss-skill-execution-result.yaml

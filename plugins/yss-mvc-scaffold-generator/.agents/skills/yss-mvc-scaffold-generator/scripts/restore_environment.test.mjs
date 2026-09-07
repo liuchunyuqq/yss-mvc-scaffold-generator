@@ -13,7 +13,7 @@ async function fixture(t) {
   const root=path.join(base,'project');await mkdir(path.join(root,'docs/process'),{recursive:true});
   await writeFile(path.join(root,'yss-project.yaml'),'schema_version: 1\nrepository_mode: project-instance\ngovernance_profile: docs/process/mvc.yaml\n');
   await writeFile(path.join(root,'docs/process/mvc.yaml'),'profile_id: yss.mvc.backend\narchitecture_style: mvc\nruntime_scope: backend-only\n');
-  await writeFile(path.join(root,'skills-lock.json'),JSON.stringify({version:1,distribution:{mode:'sibling-directory',skillUtilsDir:'../skillUtils',compatibility:'skill-utils-v1',requiredToolVersion:'1.0.0'}}));
+  await writeFile(path.join(root,'skills-lock.json'),JSON.stringify({version:1,distribution:{mode:'sibling-directory',skillUtilsDir:'../skillUtils',compatibility:'skill-utils-v1',requiredToolVersion:'1.1.0'}}));
   await writeFile(path.join(root,'business.txt'),'保留用户代码与 Spec\n');
   return {base,root,target:path.join(base,'skillUtils')};
 }
@@ -57,7 +57,7 @@ test('受管旧发行版本仅显式更新，更新失败恢复原版本',async 
   const {base,root,target}=await fixture(t);assert.equal(run(root).status,0);
   const {createHash}=await import('node:crypto');const hash=v=>createHash('sha256').update(v).digest('hex');
   // Model an internally consistent previous release, not unrecorded user edits.
-  const oldMetadata=(await readFile(path.join(target,'skill-utils.yaml'),'utf8')).replace('environment_version: 1.0.0','environment_version: 0.9.0');
+  const oldMetadata=(await readFile(path.join(target,'skill-utils.yaml'),'utf8')).replace(/environment_version: [^\n]+/,'environment_version: 0.9.0');
   await writeFile(path.join(target,'skill-utils.yaml'),oldMetadata);
   const state=JSON.parse(await readFile(path.join(target,'mvc-environment-state.json'),'utf8'));
   state.files['skill-utils.yaml']=hash(oldMetadata);state.digest=hash(JSON.stringify(state.files));

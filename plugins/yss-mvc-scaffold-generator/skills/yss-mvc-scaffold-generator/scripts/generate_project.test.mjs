@@ -41,8 +41,12 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(projectIdentity, /repository_mode: project-instance/);
   assert.match(projectIdentity, /governance_profile: docs\/process\/mvc-governance-profile\.yaml/);
   assert.match(await readFile(path.join(target, "docs/process/mvc-governance-profile.yaml"), "utf8"), /runtime_scope: backend-only/);
-  assert.match(await readFile(path.join(target, "AGENTS.md"), "utf8"), /MVC 后端治理覆盖/);
+  assert.match(await readFile(path.join(target, "AGENTS.md"), "utf8"), /acceptance-policy\.yaml/);
   assert.match(await readFile(path.join(target, "package.json"), "utf8"), /verify-governance/);
+  for (const skill of ['yss-web-controller','yss-repository','yss-application','yss-mybatis']) {
+    const rule = await readFile(path.join(path.dirname(target),'skillUtils/.agents/skills',skill,'SKILL.md'),'utf8');
+    assert.match(rule,/validated/); assert.doesNotMatch(rule,/已批准且版本当前|不因环境恢复自动批准/);
+  }
   assert.match(await readFile(path.join(target, "CONTEXT.md"), "utf8"), /AnalysisDataset/);
   assert.match(await readFile(path.join(target, ".artifact-workspace.yaml"), "utf8"), /kind: service/);
   assert.match(await readFile(path.join(target, "docs/service/module-map.md"), "utf8"), /feign-client/);
@@ -50,7 +54,7 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(await readFile(path.join(target, "docs/process/implementation-repo-registry.yaml"), "utf8"), /repository_scope: external-repository/);
   const analysisProject = await readFile(path.join(target, "docs/process/analysis-project.yaml"), "utf8"); assert.match(analysisProject, /project_name: data-analysis-item1/); assert.doesNotMatch(analysisProject, /galaxy-data-analysis|fegin-client/);
   assert.match(await readFile(path.join(target, "docs/process/lifecycle-registry.yaml"), "utf8"), /schema_version:/);
-  assert.match(await readFile(path.join(target, "docs/templates/vertical-slice-ticket-template.md"), "utf8"), /status: ready-for-human/);
+  assert.match(await readFile(path.join(target, "docs/templates/vertical-slice-ticket-template.md"), "utf8"), /validated/);
   assert.match(await readFile(path.join(target, "docs/templates/local-parent-ticket-template.md"), "utf8"), /lifecycle_status \| routing \/ running \/ paused-human-gate \/ blocked \/ completed/);
   const lifecycleContract = await readFile(path.join(skillUtils, ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml"), "utf8");
   assert.match(lifecycleContract, /entry_routing:/);

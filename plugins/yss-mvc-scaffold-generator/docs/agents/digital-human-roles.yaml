@@ -209,7 +209,9 @@ stage_groups:
     members: [role.lifecycle-orchestrator, role.project-manager, role.test-engineer, role.product-manager]
 
 gate_policy:
-  default_if_unlisted: biological-human
+  execution_policy: docs/process/acceptance-policy.yaml
+  legacy_buckets: checkpoint-v1-read-only
+  default_if_unlisted: policy-diagnostic
   unlisted_kept_biological:
     - gate.design-reviewed
     - gate.architecture-reviewed

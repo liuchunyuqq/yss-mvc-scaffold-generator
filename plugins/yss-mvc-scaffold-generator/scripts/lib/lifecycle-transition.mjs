@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { parseDocument } from "../vendor/yaml.mjs";
+import { selectDevelopmentAction } from "./acceptance-policy.mjs";
 
 const IMPLEMENTATION_WORK_UNIT = "work-unit.slice-implementation";
 const TICKET_DECOMPOSITION_WORK_UNIT = "work-unit.ticket-decomposition";
@@ -216,7 +217,7 @@ export function validateTicketFormalization(state, { exists = existsSync, read =
     signals.push(BLOCKING_SIGNALS.contractMismatch);
     missing.push("slice_contract.ticket_ref=vertical_slice_ticket.ref");
   }
-  if (contract?.status !== "approved") {
+  if (contract?.status !== "approved" && !(state?.policy_id === "acceptance-driven-v1" && contract?.status === "validated")) {
     signals.push(BLOCKING_SIGNALS.contractNotApproved);
     missing.push("slice_contract.status=approved");
   }
@@ -240,6 +241,19 @@ export function validateTicketFormalization(state, { exists = existsSync, read =
  * Validate the complete implementation entry seam after ready-for-agent promotion.
  */
 export function validateImplementationEntry(state, options = {}) {
+  if (state?.schema_version === 2) {
+    const exists = options.exists ?? existsSync;
+    const contract = state.slice_contract;
+    const errors = [];
+    if (state.policy_id !== 'acceptance-driven-v1') errors.push('unsupported-policy');
+    if (contract?.status !== 'validated' || contract?.current_version !== true || contract?.persisted !== true) errors.push('current-validated-contract-required');
+    if (!hasText(contract?.ticket_ref) || !isReadable(contract?.ticket_ref, exists)) errors.push('readable-slice-required');
+    if (!contract?.acceptance_ids?.length || !contract?.allowed_write_paths?.length) errors.push('acceptance-and-paths-required');
+    if (state.blockers?.length) errors.push('unresolved-blockers');
+    const action = selectDevelopmentAction(state);
+    if (action !== 'orchestrate') errors.push(action);
+    return errors.length ? { ...blockedResult(errors), next_action: action } : allowedResult([contract.ticket_ref]);
+  }
   const ticketResult = validateTicketFormalization(state, options);
   if (ticketResult.result === "blocked") return ticketResult;
   if (state?.predecessor_work_unit !== TICKET_DECOMPOSITION_WORK_UNIT) {
