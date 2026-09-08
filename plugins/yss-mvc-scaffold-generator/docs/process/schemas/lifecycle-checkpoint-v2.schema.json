@@ -6,6 +6,7 @@
   "required": ["schema_version", "policy_id", "goal", "baseline_ref", "baseline_digest", "acceptance_ids", "status", "slices", "blockers"],
   "properties": {
     "schema_version": {"const": 2},
+    "standards_context_version": {"const": 1},
     "policy_id": {"const": "acceptance-driven-v1"},
     "goal": {"type": "string", "minLength": 1},
     "baseline_ref": {"type": "string", "minLength": 1},

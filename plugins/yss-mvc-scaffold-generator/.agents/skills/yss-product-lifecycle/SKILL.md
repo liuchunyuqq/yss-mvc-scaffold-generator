@@ -9,6 +9,8 @@ description: 围绕用户目标自主分析、拆分、实现、按切片与整�
 
 ## 连续执行合同
 
+新任务按 `docs/process/implementation-standards-context.md` 在实现前生成共享规范上下文，按工作单元加载；checkpoint 带 `standards_context_version: 1` 和每切片规范/合同引用。恢复、工作单元切换和新增影响时先校验再读取原文。切片与整体 Review 绑定同一有效规范集合，不新增批准阶段。
+
 1. 实现、修改、修复请求默认 orchestrate；方案和分析使用 route；审查使用 audit；恢复任务使用 resume。不把一次工作单元完成当成停止整个需求的理由。
 2. 复用工程质量基线，给本需求明确验收 ID。按需维护 Spec、接口、数据约束和切片 Ticket；简单修复可只有一个切片，不生成空产物。分析资产不是人工批准点。
 3. 使用 yss-implementation-contract-compiler 计算技能闭包、路径、依赖和相关验证。合同 validated 且当前、可读、无阻塞后直接实现；ready-for-agent 由事实计算，不先设置 ready-for-human。
@@ -19,6 +21,8 @@ description: 围绕用户目标自主分析、拆分、实现、按切片与整�
 8. 切片完成、阻塞、交接和交付时集中 checkpoint。验证按输入、命令和环境复用；局部修改不重复全量打包。部署和对外动作消费既有授权，不把开发完成强制接到发布批准。
 
 ## 状态与兼容
+
+仅在读取 v1 Matt 兼容记录时，按 references/matt-yss-adapter.md 解释原调用边界：直接 ask-matt 不得写生命周期资产或改变门禁/Ticket 状态，任何写入前回交本编排器；user-invoked 技能不得自动调用它们或代替其创建正式资产，历史结果归一化为 Workflow Execution Result。旧记录中的自然语言意向不构成上述结构化 Git 授权。以上仅解释历史合同，新任务继续遵循本页 v2 连续执行合同及用户已有授权。
 
 新记录使用 docs/process/templates/acceptance-checkpoint-template.yaml。scripts/lib/lifecycle-transition.mjs 的 v2 实现入口与 scripts/lib/acceptance-policy.mjs 是执行校验 seam。v1 状态、旧门禁与原会签规则只读兼容，详见 references/state-model.md 和 references/orchestration-contract.yaml。迁移从真实资产重建 v2，保留 legacy_ref，不把历史 approved 翻译成新验收通过。
 

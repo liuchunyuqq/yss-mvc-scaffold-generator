@@ -18,6 +18,7 @@
 
 | Capability | Primary skill | Task modes |
 | --- | --- | --- |
+| `quality.backend-runtime` | `yss-backend-runtime-verification` | `result-validation`, `review-input` |
 | `governance.implementation-contract` | `yss-implementation-contract-compiler` | `contract-compilation`, `reroute`, `result-validation` |
 | `maintenance.skill-source-index` | `yss-skill-source-index-refresh` | `component-maintenance`, `source-index-refresh` |
 | `architecture.tactical-domain` | `yss-tactical-design` | `guidance`, `integration`, `slice-implementation`, `review-input` |

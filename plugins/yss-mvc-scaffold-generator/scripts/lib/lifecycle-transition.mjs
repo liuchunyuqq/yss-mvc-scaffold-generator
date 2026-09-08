@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { parseDocument } from "../vendor/yaml.mjs";
 import { selectDevelopmentAction } from "./acceptance-policy.mjs";
+import path from "node:path";
+import { standardsRoots, verifyApplicableStandards } from "./applicable-standards.mjs";
 
 const IMPLEMENTATION_WORK_UNIT = "work-unit.slice-implementation";
 const TICKET_DECOMPOSITION_WORK_UNIT = "work-unit.ticket-decomposition";
@@ -249,6 +251,12 @@ export function validateImplementationEntry(state, options = {}) {
     if (contract?.status !== 'validated' || contract?.current_version !== true || contract?.persisted !== true) errors.push('current-validated-contract-required');
     if (!hasText(contract?.ticket_ref) || !isReadable(contract?.ticket_ref, exists)) errors.push('readable-slice-required');
     if (!contract?.acceptance_ids?.length || !contract?.allowed_write_paths?.length) errors.push('acceptance-and-paths-required');
+    if (state.standards_context_version === 1) {
+      const bundle = contract?.resolution?.applicable_standards;
+      const verify = options.verifyStandards ?? (value => verifyApplicableStandards(value, standardsRoots(options.projectRoot ?? path.resolve(import.meta.dirname, '../..'))));
+      if (!bundle || verify(bundle).freshness !== 'current') errors.push('current-standards-context-required');
+      if (!bundle?.context_plan?.work_units?.some(unit => unit.work_unit === state.active_work_unit)) errors.push('active-work-unit-required');
+    }
     if (state.blockers?.length) errors.push('unresolved-blockers');
     const action = selectDevelopmentAction(state);
     if (action !== 'orchestrate') errors.push(action);

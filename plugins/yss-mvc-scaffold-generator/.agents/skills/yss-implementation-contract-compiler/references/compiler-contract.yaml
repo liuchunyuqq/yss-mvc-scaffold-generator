@@ -121,6 +121,11 @@ resolution_contract:
   stale_action: recompile-and-return-to-lifecycle-approval
 
 context_plan:
+  applicable_standards_policy: docs/process/applicable-standards.yaml
+  resolver: scripts/lib/applicable-standards.mjs
+  persisted_standards: resolution.applicable_standards
+  unit_plans: common.context_plan.work_units
+  resume: verify-digest-then-read-current-work-unit
   required: [required_context_refs, on_demand_context_refs, context_stop_rule, missing_context_action]
   context_stop_rule: minimal-sufficient-evidence
   missing_context_action: [blocked, reroute]

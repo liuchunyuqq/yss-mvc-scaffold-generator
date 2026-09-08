@@ -17,6 +17,8 @@ description: Use when a YSS vertical slice is entering implementation, spans mul
 
 ## 编译循环
 
+完整实现计划先消费项目 `docs/process/implementation-standards-context.md`：通过共享解析器编译工作单元适用规范，冻结 `resolution.applicable_standards` 与 `common.context_plan`。进入实现和恢复上下文时先校验并读取当前工作单元原文，不能仅凭 required_skills 名称声称已消费规范。
+
 1. 判断 frontend/backend/API/data/domain/cross-repo 影响，并按 [compiler-contract.yaml](references/compiler-contract.yaml) 把 impact 映射为入口 capability；逐项填写 backend `component_impacts`。
 2. 检查工程存在性和核心/长尾 skill 可用性。
 3. 从 `docs/agents/yss-skill-registry.yaml` 选择一个或多个窄 Recipe，合并 `required_capabilities`；Recipe 不得直接引用 skill。

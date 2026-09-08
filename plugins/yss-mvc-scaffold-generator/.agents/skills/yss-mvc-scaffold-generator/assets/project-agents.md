@@ -10,6 +10,8 @@
 
 ## 工程约束
 
+实现前按 docs/process/implementation-standards-context.md 编译适用规范；切片 checkpoint 保存规范摘要、当前工作单元与合同引用。恢复或切换工作单元时运行 scripts/applicable-standards.mjs 的 --check --work-unit，再读取返回的必需原文。独立 Review 使用同一解析器并核对实际影响。
+
 - 按 yss-project.yaml 指向的 docs/process/mvc-governance-profile.yaml 选择六模块 MVC 后端规则；DDD 与前端技能不适用，不生成空产物。
 - 共享技能位于 ../skillUtils/.agents/skills，平台投影由工具生成。有效能力注册表是 ../skillUtils/mvc-skill-registry.yaml。禁止在消费副本中维护技能。
 - 首次使用或环境变化执行 npm run check-agent-environment 与 npm run verify-governance；工程验证使用项目 Maven Wrapper（Windows 用 mvnw.cmd）。开发中执行相关检查，交付执行必要集成构建，避免重复生命周期阶段。

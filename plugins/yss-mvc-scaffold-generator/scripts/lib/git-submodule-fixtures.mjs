@@ -31,7 +31,7 @@ export function makeGitlinkFixture({ checkout = "empty-gitlink" } = {}) {
     mkdirSync(path.join(superproject, mount), { recursive: true });
     writeFileSync(
       path.join(superproject, ".gitmodules"),
-      `[submodule "backend-billing-service"]\n\tpath = ${mount}\n\turl = ${child}\n`
+      `[submodule "backend-billing-service"]\n\tpath = ${mount}\n\turl = ${child.replaceAll(path.sep, '/')}\n`
     );
     git(superproject, ["update-index", "--add", "--cacheinfo", "160000", sha, mount]);
     git(superproject, ["add", ".gitmodules"]);

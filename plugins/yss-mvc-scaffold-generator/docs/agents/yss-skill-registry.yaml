@@ -23,6 +23,7 @@ capability_contract:
     preserve_all_reasons: true
   deterministic_order: [recipe-declaration, dependency-topology, skill-id]
 capabilities:
+  - { id: quality.backend-runtime, primary_skill: yss-backend-runtime-verification, task_modes: [result-validation, review-input] }
   - { id: governance.implementation-contract, primary_skill: yss-implementation-contract-compiler, task_modes: [contract-compilation, reroute, result-validation] }
   - { id: maintenance.skill-source-index, primary_skill: yss-skill-source-index-refresh, task_modes: [component-maintenance, source-index-refresh] }
   - { id: architecture.tactical-domain, primary_skill: yss-tactical-design, task_modes: [guidance, integration, slice-implementation, review-input] }
@@ -555,12 +556,6 @@ skills:
   - id: yss-mybatis
     layer: specialist
     maturity: supported
-    instance_default_discoverable: false
-    aliases: []
-    impacts: [backend]
-  - id: yss-mvc-scaffold-generator
-    layer: specialist
-    maturity: draft
     instance_default_discoverable: false
     aliases: []
     impacts: [backend]

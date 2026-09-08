@@ -15,6 +15,7 @@ export const SKILL_UTILS_DIRECTORIES = [
   ".pi/skills", ".qoder/skills", ".trae/skills"
 ];
 export const PROJECT_SCRIPT_FILES = [
+  "applicable-standards.mjs",
   "acceptance-action.mjs", "check-agent-environment.mjs", "implementation-path-policy", "repository-mode", "repository-scope-policy",
   "generate-lifecycle-artifacts", "node-generate-lifecycle-artifacts.mjs", "node-verify-lifecycle-registry.mjs",
   "verify-lifecycle-registry", "verify-lifecycle-checkpoint", "verify-frontend-implementation-evidence",

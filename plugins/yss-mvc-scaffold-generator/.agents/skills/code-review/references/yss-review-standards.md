@@ -8,14 +8,12 @@
 
 ## 1. 编译标准源
 
-按顺序收集，缺项写 `not-applicable` 及原因，不得省略适用项：
+新任务先按项目 `docs/process/implementation-standards-context.md` 调用共享解析器，并独立核对真实影响。适用性以 `docs/process/applicable-standards.yaml`、当前 Profile、工程基线与合同技能为准；缺失适用来源必须刷新或阻断。
 
 1. 仓库文档：`CODING_STANDARDS.md`、`CONTRIBUTING.md` 或实现仓等价文件（若存在）。
 2. Slice Implementation Contract 的 `required_skills`：对每个技能读取 `.agents/skills/<id>/SKILL.md` 及该 skill 指明的 references。
-3. 影响面专项检查输入（与合同并集，不得互相替代）：
-   - 后端：`alibaba-java-code-style`、`yss-domain`、`yss-application`、`yss-repository`、`yss-web-controller`、`yss-dto`、`mapstruct`、`lombok`；运行 profile、Repository/Mapper 注册、配置中心、数据库驱动、外部资源或最终包内容受影响时追加 `yss-backend-runtime-verification`
-   - UI：`yss-ui`、`yss-design-system`、`yss-ui-business-page-generation`、`yss-page-module-development`
-4. 报告模板中的后端 / 前端门禁表。空着的适用行视为 `missing_evidence`。
+3. 影响面专项输入由共享策略与合同取并集；MVC 不加载 DDD 或前端技能。运行时与最终包影响在实现前和 Review 使用相同触发键。
+4. 报告记录实际适用规范、证据与 findings，切片带 standards_digest，整体带 standards_digests。不生成未命中影响的空门禁表；不能仅写“符合 YSS”。
 
 YSS 页面模块约定（YTable、YFormily、页面骨架等）走 Standards，不并入 UI fidelity。UI fidelity 只核原型与状态矩阵。
 
@@ -23,7 +21,7 @@ YSS 页面模块约定（YTable、YFormily、页面骨架等）走 Standards，�
 
 ## 2. 机器检查
 
-在派发 Standards / Spec 子审查之前，对实现仓**已登记且当前可执行**的命令实际跑一遍：
+按验收策略检查实现仓**已登记且当前可执行**的相关命令。输入、命令、环境相同且成功的证据可复用；缺失或过期时实际执行：
 
 - 后端优先：切片合同里的 `./mvnw` 验证；若工程已配置 Checkstyle / P3C / Spotless / `validate`，一并执行。
 - 前端优先：切片合同里的 `pnpm` 验证；若存在 `pnpm lint` / `pnpm type-check`，一并执行。
@@ -52,7 +50,7 @@ YSS 页面模块约定（YTable、YFormily、页面骨架等）走 Standards，�
 
 | 类型 | 动作 |
 |---|---|
-| `violation`、机器检查失败、适用行空白、`missing_evidence` | 实现者在**原合同允许路径**内修复；任何修复使候选失效，必须重新捕获并重跑 Standards、Spec、UI fidelity（若命中）和 fresh verification |
+| `violation`、机器检查失败、适用行空白、`missing_evidence` | 实现者在当前合同路径修复；按 acceptance-policy.yaml 复查相关问题和受影响行为，更新相关候选与规范摘要，复用未受影响的有效证据 |
 | `drift`、`new_impacts`、`required_skills` 与真实影响不一致 | 合同标 `stale`，回 实现合同编译器 或更早生命周期阶段；禁止在旧合同上继续编码 |
 
 `not-applicable` 仅当影响面未命中。命中后的 mandatory 不得豁免；只允许修复，或写完整 `seam-deferred`（风险、责任人、后续 Ticket、验证计划、目标版本或发布日期）。禁止为日常 Alibaba / YSS 新增生物人豁免门禁；安全 / 公共 API 仍走既有 `TODO-HUMAN-REVIEW` 与生物人门禁。

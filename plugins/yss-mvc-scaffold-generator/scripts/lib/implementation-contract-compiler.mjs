@@ -4,6 +4,7 @@ import path from "node:path";
 import { parseDocument } from "../vendor/yaml.mjs";
 import { DEFAULT_REGISTRY, loadSkillRegistry } from "./skill-registry.mjs";
 import { ROOT } from "./skill-supply-chain.mjs";
+import { resolveApplicableStandards, verifyApplicableStandards } from "./applicable-standards.mjs";
 
 export const DEFAULT_COMPILER_CONTRACT = path.join(
   ROOT,
@@ -58,7 +59,9 @@ export function compileImplementationContract({
   conditions = [],
   compiledAt = new Date().toISOString(),
   registryDigest,
-  compilerContractDigest
+  compilerContractDigest,
+  standardsRequest,
+  standardsRoots
 }) {
   assertV2(registry, compilerContract);
   if (!Array.isArray(recipeIds) || !Array.isArray(requiredCapabilities) || !Array.isArray(conditions)) {
@@ -139,6 +142,14 @@ export function compileImplementationContract({
   };
   for (const root of roots) visit(root);
 
+  let standardsContext;
+  if (standardsRequest) {
+    if (!standardsRoots) fail("编译规范上下文需要 projectRoot 与 skillRoot");
+    const covered = new Set(standardsRequest.work_units?.flatMap(unit => unit.required_skills ?? []) ?? []);
+    if (orderedSkills.some(skill => !covered.has(skill))) fail("规范工作单元未覆盖编译器 required_skills");
+    standardsContext = resolveApplicableStandards(standardsRequest, standardsRoots);
+  }
+
   return {
     schema_version: 2,
     status: "draft",
@@ -152,7 +163,8 @@ export function compileImplementationContract({
     registry_digest: registryDigest ?? digestDocument(registry),
     compiler_contract_digest: compilerContractDigest ?? digestDocument(compilerContract),
     compiled_at: compiledAt,
-    freshness: "current"
+    freshness: "current",
+    ...(standardsContext ? { applicable_standards: standardsContext, context_plan: standardsContext.context_plan } : {})
   };
 }
 
@@ -164,13 +176,17 @@ export function compileDefaultImplementationContract(input = {}) {
   });
 }
 
-export function evaluateContractFreshness(contract, { registry, compilerContract }) {
+export function evaluateContractFreshness(contract, { registry, compilerContract, standardsRoots }) {
   assertV2(registry, compilerContract);
   if (contract?.schema_version !== 2) fail("Slice Implementation Contract schema v1 已停止支持；必须重新编译 v2 合同");
   const resolution = contract.resolution ?? contract;
   const reasons = [];
   if (resolution.registry_digest !== digestDocument(registry)) reasons.push("registry-digest-changed");
   if (resolution.compiler_contract_digest !== digestDocument(compilerContract)) reasons.push("compiler-contract-digest-changed");
+  if (resolution.applicable_standards) {
+    if (!standardsRoots) reasons.push("standards-roots-required");
+    else reasons.push(...verifyApplicableStandards(resolution.applicable_standards, standardsRoots).reasons);
+  }
   return { freshness: reasons.length ? "stale" : "current", reasons };
 }
 

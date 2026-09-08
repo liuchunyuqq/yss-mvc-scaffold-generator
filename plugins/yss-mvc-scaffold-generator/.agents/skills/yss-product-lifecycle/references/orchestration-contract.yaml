@@ -332,6 +332,9 @@ work_unit_routes:
     supporting_skills: [alibaba-java-code-style, yss-ui, yss-design-system, yss-page-module-development, yss-domain, yss-application, yss-repository, yss-web-controller, yss-dto, mapstruct, lombok]
     skills: [code-review, alibaba-java-code-style, yss-ui, yss-design-system, yss-page-module-development, yss-domain, yss-application, yss-repository, yss-web-controller, yss-dto, mapstruct, lombok]
     review_standards_route:
+      applicable_standards_policy: docs/process/applicable-standards.yaml
+      shared_resolver: scripts/lib/applicable-standards.mjs
+      conditional_skills_scope: legacy-v1-only
       unique_default_skill: code-review
       second_generic_review_skill: forbidden
       report_template: docs/templates/review-report-template.md
@@ -708,6 +711,9 @@ wayfinder_mode:
   template_source_use: only-when-template-evolution-is-long-running
 
 context_engineering:
+  applicable_standards_policy: docs/process/applicable-standards.yaml
+  resume_protocol: docs/process/implementation-standards-context.md
+  checkpoint_extension: standards_context_version=1
   contract_field: slice_contract.common.context_plan
   required_context: [CONTEXT.md, approved-spec, current-slice-contract, applicable-adr-or-baseline]
   on_demand_context: [specialist-references, implementation-repository-files, historical-evidence]

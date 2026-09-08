@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseDocument } from '../vendor/yaml.mjs';
+import { standardsRoots, verifyApplicableStandards } from './applicable-standards.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export function loadAcceptancePolicy(projectRoot = root) {
@@ -36,7 +37,7 @@ export function fileDigest(ref, projectRoot = root) {
   try { return createHash('sha256').update(readFileSync(path.resolve(projectRoot, ref))).digest('hex'); }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
 }
-export function validateAcceptanceCheckpoint(state, { resolve = (ref) => JSON.parse(readFileSync(path.resolve(root, ref), 'utf8')), digest = fileDigest } = {}) {
+export function validateAcceptanceCheckpoint(state, { resolve = (ref) => JSON.parse(readFileSync(path.resolve(root, ref), 'utf8')), digest = fileDigest, verifyStandards = bundle => verifyApplicableStandards(bundle, standardsRoots(root)) } = {}) {
   const errors = [];
   const requiredText = (value) => typeof value === 'string' && value.trim().length > 0;
   if (state?.schema_version !== 2 || state.policy_id !== 'acceptance-driven-v1') errors.push('unsupported-policy-or-schema');
@@ -50,6 +51,16 @@ export function validateAcceptanceCheckpoint(state, { resolve = (ref) => JSON.pa
   if (!Array.isArray(ids) || !ids.length || ids.some(id => !requiredText(id)) || new Set(ids).size !== ids.length) errors.push('acceptance-ids-required');
   if (!['routing', 'running', 'reviewing', 'awaiting-input', 'blocked', 'completed'].includes(state?.status)) errors.push('invalid-status');
   if (state?.status === 'awaiting-input' && (!loadAcceptancePolicy().human_input_reasons.includes(state.pause?.reason) || !requiredText(state.pause?.question))) errors.push('concrete-input-required');
+  if (state.standards_context_version === 1) for (const slice of state.slices ?? []) {
+    try {
+      const bundle = resolve(slice.standards_ref);
+      if (bundle.digest !== slice.standards_digest || verifyStandards(bundle).freshness !== 'current') errors.push('slice-standards-stale');
+      if (!bundle.context_plan?.work_units?.some(unit => unit.work_unit === slice.active_work_unit)) errors.push('slice-active-work-unit-required');
+      const contract = resolve(slice.contract_ref);
+      if (!requiredText(slice.contract_version) || contract.contract_version !== slice.contract_version || contract.status !== 'validated') errors.push('slice-current-contract-required');
+      if (contract.resolution?.applicable_standards?.digest !== bundle.digest) errors.push('slice-contract-standards-mismatch');
+    } catch { errors.push('slice-standards-or-contract-unreadable'); }
+  }
   if (state?.status !== 'completed') return errors;
   if (!Array.isArray(state.slices) || !state.slices.length) errors.push('slices-required');
   if (state.blockers?.length) errors.push('unresolved-blockers');
@@ -59,6 +70,10 @@ export function validateAcceptanceCheckpoint(state, { resolve = (ref) => JSON.pa
     try { review = resolve(item?.review_ref); } catch { errors.push(`${scope}-review-unreadable`); return; }
     if (!requiredText(item?.candidate_digest) || review.candidate_digest !== item.candidate_digest) errors.push(`${scope}-review-stale`);
     if (review.baseline_digest !== state.baseline_digest) errors.push(`${scope}-baseline-not-reviewed`);
+    if (state.standards_context_version === 1) {
+      if (scope === 'slice' && review.standards_digest !== item.standards_digest) errors.push('slice-standards-not-reviewed');
+      if (scope === 'overall' && state.slices.some(slice => review.standards_digests?.[slice.id] !== slice.standards_digest)) errors.push('overall-standards-not-reviewed');
+    }
     try {
       if (contentDigest(review.inputs) !== review.candidate_digest) errors.push(`${scope}-candidate-digest-invalid`);
       for (const [ref, expected] of Object.entries(review.inputs)) if (digest(ref) !== expected) errors.push(`${scope}-candidate-changed`);

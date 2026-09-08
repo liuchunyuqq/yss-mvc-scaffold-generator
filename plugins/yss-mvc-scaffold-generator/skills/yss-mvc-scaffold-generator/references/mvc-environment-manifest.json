@@ -66,16 +66,7 @@
     "yss-mvc-scaffold-generator",
     "yss-components"
   ],
-  "additional_capabilities": [
-    {
-      "id": "quality.backend-runtime",
-      "primary_skill": "yss-backend-runtime-verification",
-      "task_modes": [
-        "result-validation",
-        "review-input"
-      ]
-    }
-  ],
+  "additional_capabilities": [],
   "legacy_aliases": {
     "yss-router": "yss-implementation-contract-compiler"
   }

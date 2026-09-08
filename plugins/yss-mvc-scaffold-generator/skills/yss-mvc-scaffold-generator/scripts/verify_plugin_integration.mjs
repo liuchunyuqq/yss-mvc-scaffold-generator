@@ -19,6 +19,13 @@ try {
  const origin=path.join(base,'work1/project');await mkdir(path.dirname(origin),{recursive:true});
  run(process.execPath,[path.join(scripts,'generate_project.mjs'),'--project-name','mvc-isolated','--base-package','com.yss.fixture','--target-dir',origin,'--with-mock']);
  run(process.execPath,[path.join(scripts,'verify_project.mjs'),'--project-root',origin]);
+ const standardsRequest={baseline_ref:'docs/engineering/data-analysis-java-conventions.md',work_units:[{id:'http',required_skills:['yss-web-controller','yss-dto','yss-validation'],impacts:['backend_impact','web-adapter-impact','request-validation','mapper-registration-impact']}]};
+ await writeFile(path.join(origin,'standards-request.json'),JSON.stringify(standardsRequest));
+ const compileStandards=project=>run(process.execPath,[path.join(project,'scripts/applicable-standards.mjs'),'--input',path.join(project,'standards-request.json'),'--output',path.join(project,'standards-context.json'),'--work-unit','http']);
+ const compiled=JSON.parse(compileStandards(origin).stdout);
+ assert(compiled.required_context_refs.includes('skills:yss-backend-runtime-verification/SKILL.md'));
+ assert(!compiled.required_context_refs.some(ref=>/yss-domain|yss-ui/.test(ref)));
+ run(process.execPath,[path.join(origin,'scripts/applicable-standards.mjs'),'--input',path.join(origin,'standards-context.json'),'--check','--work-unit','http']);
  run(process.execPath,[path.join(origin,'scripts/verify-mvc-governance-profile.mjs'),origin]);
  const preview=run(process.execPath,[path.join(scripts,'migrate_governance.mjs'),'--project-root',origin,'--dry-run']);
  assert.deepEqual(JSON.parse(preview.stdout).changes,[]);
@@ -34,6 +41,15 @@ try {
  const originalState=JSON.parse(await readFile(path.join(base,'work1/skillUtils/mvc-environment-state.json'),'utf8'));
  const restoredState=JSON.parse(await readFile(path.join(base,'work2/skillUtils/mvc-environment-state.json'),'utf8'));
  assert.equal(restoredState.digest,originalState.digest);
+ // Git checkout may normalize project line endings; recompile then compare routing, not raw file hashes.
+ const restoredPlan=JSON.parse(compileStandards(clone).stdout);
+ assert.deepEqual({...restoredPlan,standards_digest:null},{...compiled,standards_digest:null});
+ run(process.execPath,[path.join(clone,'scripts/applicable-standards.mjs'),'--input',path.join(clone,'standards-context.json'),'--check','--work-unit','http']);
+ const baselineFile=path.join(clone,'docs/engineering/data-analysis-java-conventions.md');
+ const baselineBody=await readFile(baselineFile,'utf8');await writeFile(baselineFile,baselineBody+'\nchanged rule\n');
+ const stale=run(process.execPath,[path.join(clone,'scripts/applicable-standards.mjs'),'--input',path.join(clone,'standards-context.json'),'--check'],false);
+ assert.notEqual(stale.status,0);assert.match(stale.stderr,/changed/);
+ await writeFile(baselineFile,baselineBody);
  const names=await readdir(path.join(base,'work2/skillUtils/.agents/skills'));assert.equal(names.length,38);
  const entry=path.join(plugin,'skills/yss-mvc-scaffold-generator/SKILL.md');await writeFile(entry,(await readFile(entry,'utf8'))+'\nfixture drift\n');
  const drift=run(process.execPath,[path.join(plugin,'.agents/skills/yss-mvc-scaffold-generator/scripts/export_plugin.mjs'),'--target',plugin,'--check'],false);

@@ -119,6 +119,11 @@ export function syncSkills({ check = false } = {}) {
   const obsolete = [...new Set([...shared.filter((name) => OBSOLETE.has(name)), ...obsoleteCanonicalResidues(skillNames(SOURCE_ROOT))])];
   if (obsolete.length) throw new TypeError(`obsolete skills remain in canonical root: ${obsolete.join(", ")}`);
   const drift = [];
+  // core.symlinks=false checks Git links out as small text files on Windows.
+  // Validate that repository representation without expanding hundreds of unrelated copies.
+  const linkIndex = process.platform === 'win32' ? spawnSync('git', ['ls-files', '--stage', '-z'], {cwd:ROOT,encoding:'utf8'}) : null;
+  if (linkIndex && linkIndex.status !== 0) throw new TypeError('无法读取技能投影 Git 链接清单');
+  const trackedLinks = new Set((linkIndex?.stdout ?? '').split('\0').filter(line=>line.startsWith('120000 ')).map(line=>line.split('\t')[1]));
   for (const root of PROJECTION_ROOTS) {
     const projection = path.join(ROOT, root);
     ensureSafeProjection(projection);
@@ -132,7 +137,8 @@ export function syncSkills({ check = false } = {}) {
     for (const name of shared) {
       const source = path.join(SOURCE_ROOT, name);
       const target = path.join(projection, name);
-      const info = lstatSafe(target);
+        const info = lstatSafe(target);
+        if (info?.isFile() && trackedLinks.has(relative(target)) && path.resolve(projection, readFileSync(target,'utf8').trim()) === path.resolve(source)) continue;
       if (check) {
         if (info?.isSymbolicLink()) {
           if (!existsSync(target) || realpathSync(target) !== realpathSync(source)) drift.push(`projection target mismatch: ${relative(target)}`);

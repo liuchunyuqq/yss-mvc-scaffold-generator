@@ -5,6 +5,8 @@ description: 独立审查切片或整体实现的验收覆盖、正确性和适�
 
 # Code Review
 
+按项目 `docs/process/implementation-standards-context.md` 使用共享适用规范解析器。先独立核对真实 diff 的影响面，再重算规范并检查来源摘要，不将实施者集合当作审查范围上限。报告绑定当前 standards_digest，恢复或新影响先刷新合同。Standards 适用性不再另行维护后端技能并集。
+
 先读用户目标、CONTEXT.md、工程基线、当前切片合同及其 required_skills。使用 references/yss-review-standards.md 中适用的 YSS / Alibaba 检查输入；不要为未触发影响生成空表或让个人偏好成为硬要求。
 
 ## 审查执行

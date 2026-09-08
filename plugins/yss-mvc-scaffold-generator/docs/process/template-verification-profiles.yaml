@@ -219,6 +219,7 @@ groups:
   lifecycle:
     commands:
       - { run: "node --test scripts/acceptance-policy.test.mjs" }
+      - { run: "node --test scripts/applicable-standards.test.mjs" }
       - { run: "node --test .agents/skills/yss-mvc-scaffold-generator/scripts/migrate_governance.test.mjs" }
       - { run: "scripts/verify-lifecycle-registry" }
       - { run: "scripts/verify-lifecycle-checkpoint docs/process/templates/lifecycle-checkpoint-template.yaml" }

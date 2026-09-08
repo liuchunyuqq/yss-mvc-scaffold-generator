@@ -340,7 +340,7 @@ export function runScenario(name) {
     }
     let metadataRejected = false;
     try {
-      validateInvocationMetadata(data.matt_invocation_boundary, (skill) => skill === "grill-with-docs" ? read(`.agents/skills/${skill}/SKILL.md`).replace("disable-model-invocation: true\n", "") : read(`.agents/skills/${skill}/SKILL.md`));
+      validateInvocationMetadata(data.matt_invocation_boundary, (skill) => skill === "grill-with-docs" ? read(`.agents/skills/${skill}/SKILL.md`).replace(/disable-model-invocation: true\r?\n/, "") : read(`.agents/skills/${skill}/SKILL.md`));
     } catch { metadataRejected = true; }
     ensure(metadataRejected, "user-invoked front matter 变异未被 baseline oracle 拒绝");
     const mutations = [
