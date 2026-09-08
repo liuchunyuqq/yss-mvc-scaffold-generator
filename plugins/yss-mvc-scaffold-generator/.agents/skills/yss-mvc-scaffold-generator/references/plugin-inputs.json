@@ -17,6 +17,7 @@
     "scripts/vendor"
   ],
   "script_files": [
+    "verify-development.mjs", "verify-java-web.mjs",
     "applicable-standards.mjs",
     "acceptance-action.mjs", "check-agent-environment.mjs",
     "implementation-path-policy",

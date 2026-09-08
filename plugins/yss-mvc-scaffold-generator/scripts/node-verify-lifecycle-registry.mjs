@@ -26,17 +26,19 @@ try {
       const ignored = run("git", ["check-ignore", "-q", relativePath]);
       if (ignored.status === 0) throw new TypeError(`权威注册表资产不得被 Git 忽略: ${relativePath}`);
     }
-    const stalePaths = ["AGENTS.md", "README.md", "docs/user-guide/用户手册.md", ".agents/skills/yss-product-lifecycle/SKILL.md", "docs/process/lifecycle-artifact-map.md"];
-    if (isTemplateSource(ROOT)) stalePaths.push(".template-source/derived/harness-work-unit-map.md");
+    const stalePaths = ["AGENTS.md", "README.md", "docs/process/lifecycle-artifact-map.md"];
+    if (isTemplateSource(ROOT)) stalePaths.push("docs/user-guide/用户手册.md", ".agents/skills/yss-product-lifecycle/SKILL.md", ".template-source/derived/harness-work-unit-map.md");
     for (const relativePath of stalePaths) {
       if (/\d+\s*个(?:主阶段|门禁|工作单元|职责点)/.test(readFileSync(path.join(ROOT, relativePath), "utf8"))) {
         throw new TypeError(`${relativePath} 不得手工声明生命周期对象数量；请引用 lifecycle-registry.yaml`);
       }
     }
+    if (isTemplateSource(ROOT)) {
     const publicSkills = JSON.parse(readFileSync(path.join(ROOT, "yss-public-skills.json"), "utf8"));
     const groups = new Map(publicSkills.groupings.map((group) => [group.title, group.skills]));
     if (!groups.get("后端")?.includes("yss-web-controller")) throw new TypeError("yss-web-controller 必须在后端分组");
     if (groups.get("前端")?.includes("yss-web-controller")) throw new TypeError("yss-web-controller 不得在前端分组");
+    }
   }
   process.stdout.write(`生命周期注册表验证通过（${registry.status}）\n`);
 } catch (error) {

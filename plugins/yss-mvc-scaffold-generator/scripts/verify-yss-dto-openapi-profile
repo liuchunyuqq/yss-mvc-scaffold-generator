@@ -3,9 +3,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "./vendor/yaml.mjs";
+import { standardsRoots } from "./lib/applicable-standards.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const profilePath = path.join(root, ".agents/skills/yss-dto/references/openapi-wire-profile.yaml");
+const profilePath = path.join(standardsRoots(root).skillRoot, "yss-dto/references/openapi-wire-profile.yaml");
 
 function ensure(condition, message) {
   if (!condition) throw new TypeError(message);

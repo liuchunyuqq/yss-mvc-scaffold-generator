@@ -43,6 +43,15 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(await readFile(path.join(target, "docs/process/mvc-governance-profile.yaml"), "utf8"), /runtime_scope: backend-only/);
   assert.match(await readFile(path.join(target, "AGENTS.md"), "utf8"), /acceptance-policy\.yaml/);
   assert.match(await readFile(path.join(target, "package.json"), "utf8"), /verify-governance/);
+  for (const entry of ['verify-lifecycle-registry', 'verify-yss-dto-openapi-profile', 'verify-java-web.mjs', 'verify-mvc-governance-profile.mjs']) {
+    const checked = spawnSync(process.execPath, [path.join(target, 'scripts', entry)], { cwd: target, encoding: 'utf8' });
+    assert.equal(checked.status, 0, `${entry}: ${checked.stdout}${checked.stderr}`);
+  }
+  const missingCheckpoint = spawnSync(process.execPath, [path.join(target, 'scripts/verify-development.mjs')], { cwd: target, encoding: 'utf8' });
+  assert.equal(missingCheckpoint.status, 1);
+  assert.match(missingCheckpoint.stderr, /checkpoint/);
+  const compiled = spawnSync(process.execPath, ['--input-type=module', '-e', "import {compileDefaultImplementationContract} from './scripts/lib/implementation-contract-compiler.mjs'; const c=compileDefaultImplementationContract({recipeIds:['backend.mvc-use-case']}); if(!c.required_skills.includes('yss-application')) process.exit(1);"], { cwd: target, encoding: 'utf8' });
+  assert.equal(compiled.status, 0, compiled.stderr);
   for (const skill of ['yss-web-controller','yss-repository','yss-application','yss-mybatis']) {
     const rule = await readFile(path.join(path.dirname(target),'skillUtils/.agents/skills',skill,'SKILL.md'),'utf8');
     assert.match(rule,/validated/); assert.doesNotMatch(rule,/已批准且版本当前|不因环境恢复自动批准/);

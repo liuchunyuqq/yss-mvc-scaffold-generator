@@ -10,6 +10,8 @@
 
 ## 工程约束
 
+业务代码首次编辑前运行 `npm run verify-implementation -- --checkpoint docs/.scratch/<feature>/checkpoint.yaml`；交付前运行 `npm run verify-acceptance -- --checkpoint docs/.scratch/<feature>/checkpoint.yaml`。输入结构见 docs/process/development-gate.md。环境和 Profile 通过只表示脚手架可用，不是业务完成；不得以跳过测试的 package、内存占位实现或模拟成功替代用户要求的真实行为。普通项目开发必须创建并持续维护实际过程产物，不补写虚假历史。
+
 实现前按 docs/process/implementation-standards-context.md 编译适用规范；切片 checkpoint 保存规范摘要、当前工作单元与合同引用。恢复或切换工作单元时运行 scripts/applicable-standards.mjs 的 --check --work-unit，再读取返回的必需原文。独立 Review 使用同一解析器并核对实际影响。
 
 - 按 yss-project.yaml 指向的 docs/process/mvc-governance-profile.yaml 选择六模块 MVC 后端规则；DDD 与前端技能不适用，不生成空产物。

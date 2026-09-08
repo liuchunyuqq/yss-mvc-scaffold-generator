@@ -4,11 +4,11 @@ import path from "node:path";
 import { parseDocument } from "../vendor/yaml.mjs";
 import { DEFAULT_REGISTRY, loadSkillRegistry } from "./skill-registry.mjs";
 import { ROOT } from "./skill-supply-chain.mjs";
-import { resolveApplicableStandards, verifyApplicableStandards } from "./applicable-standards.mjs";
+import { resolveApplicableStandards, verifyApplicableStandards, standardsRoots as resolveStandardsRoots } from "./applicable-standards.mjs";
 
 export const DEFAULT_COMPILER_CONTRACT = path.join(
-  ROOT,
-  ".agents/skills/yss-implementation-contract-compiler/references/compiler-contract.yaml"
+  resolveStandardsRoots(ROOT).skillRoot,
+  "yss-implementation-contract-compiler/references/compiler-contract.yaml"
 );
 
 const REMOVED_SKILL_IDS = new Set(["yss-router", "yss-source-index"]);
@@ -169,9 +169,12 @@ export function compileImplementationContract({
 }
 
 export function compileDefaultImplementationContract(input = {}) {
+  const skillRoot = resolveStandardsRoots(ROOT).skillRoot;
+  const registryPath = skillRoot === path.join(ROOT, '.agents/skills')
+    ? DEFAULT_REGISTRY : path.resolve(skillRoot, '../..', 'mvc-skill-registry.yaml');
   return compileImplementationContract({
     ...input,
-    registry: loadSkillRegistry(DEFAULT_REGISTRY),
+    registry: loadSkillRegistry(registryPath),
     compilerContract: loadCompilerContract()
   });
 }

@@ -218,6 +218,7 @@ groups:
       - { run: "scripts/verify-digital-human-task-package .template-source/evidence/maintenance/lifecycle-ticket-transition-review-task-package.yaml", when: template-source }
   lifecycle:
     commands:
+      - { run: "node --test scripts/development-gate.test.mjs" }
       - { run: "node --test scripts/acceptance-policy.test.mjs" }
       - { run: "node --test scripts/applicable-standards.test.mjs" }
       - { run: "node --test .agents/skills/yss-mvc-scaffold-generator/scripts/migrate_governance.test.mjs" }

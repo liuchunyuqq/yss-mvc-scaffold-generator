@@ -55,6 +55,8 @@ Windows 使用 `mvnw.cmd`。指定外部 settings 时，Maven 命令必须加 `-
 
 生成项目进入 API/Controller 实现后，登记命令必须包含 Java Web/Javadoc 检查、`fmt:check`、测试和构建。Smart-doc 仅作为人工按需从 Controller 生成辅助文档的工具，不属于默认 AI Coding 验证链路；只有用户明确要求生成 Smart-doc 文档时才执行对应 goal。
 
+业务准入和完成分别执行生成项目的 `verify-implementation` 与 `verify-acceptance`，均显式传入本需求 checkpoint。两者消费 docs/process/development-gate.md；没有 Spec、命中的 API/数据模型、validated 合同、规范上下文和真实检查证据不得宣布业务完成。初始化仅证明工程可用，不产生虚假的业务产物。
+
 生成结果包含根 `yss-project.yaml`、`AGENTS.md`、`CONTEXT.md`、生命周期事实源、共享 skills、本地 Ticket 入口、`external-repository` 实现仓库登记和 `.gitignore`。生成器执行 `git init --initial-branch=main`；旧版 Git自动回退到 `git init` 后重命名分支。只初始化仓库，不创建 commit 或 remote。
 
 ## 硬约束

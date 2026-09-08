@@ -1,5 +1,7 @@
 # MVC 运行期路由
 
+业务开发必须按 docs/process/development-gate.md 维护实际 Spec、API/数据模型（命中时）、合同和 checkpoint；实现前调用 verify-development.mjs --mode implementation，完成前调用 --mode completion。Profile 或 package 成功不能替代业务验收，不得自行缩减为内存 Demo。
+
 实现与 Review 的适用规范统一由项目 scripts/applicable-standards.mjs 解析，策略为 docs/process/applicable-standards.yaml；操作见 docs/process/implementation-standards-context.md。通用 orchestration 的 conditional_skills 列表只用于旧 v1，当前 MVC 以 Profile 和工作单元的真实影响解析，禁止从通用列表补入 DDD 或前端技能。
 
 读取项目 CONTEXT.md、governance_profile 和 docs/process/acceptance-policy.yaml。新任务默认验收驱动：自主分析、实现、每切片独立 Review、整体 Review 和集成验收。共享 skill 中旧批准前置只用于 checkpoint v1 历史兼容；不写 approved 来绕过旧校验，新实现合同使用 validated。
