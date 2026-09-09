@@ -19,6 +19,11 @@ try {
  const origin=path.join(base,'work1/project');await mkdir(path.dirname(origin),{recursive:true});
  run(process.execPath,[path.join(scripts,'generate_project.mjs'),'--project-name','mvc-isolated','--base-package','com.yss.fixture','--target-dir',origin,'--with-mock']);
  run(process.execPath,[path.join(scripts,'verify_project.mjs'),'--project-root',origin]);
+ // 新建工程进入真实需求入口：基线 -> checkpoint -> 实际校验器。
+ await mkdir(path.join(origin,'docs/.scratch/checkpoint-probe'),{recursive:true});
+ await writeFile(path.join(origin,'docs/.scratch/checkpoint-probe/spec.md'),'# 验收\n- AC-01：查询可见模板\n- AC-02：拒绝无权限请求\n');
+ run(process.execPath,[path.join(origin,'scripts/init-acceptance-checkpoint.mjs'),'--project-root',origin,'--goal','查询模板','--baseline','docs/.scratch/checkpoint-probe/spec.md','--output','docs/.scratch/checkpoint-probe/checkpoint.yaml']);
+ run(process.execPath,[path.join(origin,'scripts/verify-lifecycle-checkpoint'),path.join(origin,'docs/.scratch/checkpoint-probe/checkpoint.yaml')]);
  const standardsRequest={baseline_ref:'docs/engineering/data-analysis-java-conventions.md',work_units:[{id:'http',required_skills:['yss-web-controller','yss-dto','yss-validation'],impacts:['backend_impact','web-adapter-impact','request-validation','mapper-registration-impact']}]};
  await writeFile(path.join(origin,'standards-request.json'),JSON.stringify(standardsRequest));
  const compileStandards=project=>run(process.execPath,[path.join(project,'scripts/applicable-standards.mjs'),'--input',path.join(project,'standards-request.json'),'--output',path.join(project,'standards-context.json'),'--work-unit','http']);

@@ -35,3 +35,11 @@ MVC 合同额外包含 `mvc_structure`：production_types、entity_types、mappe
 实现开始前执行 `capture-governance-baseline.mjs --checkpoint <路径>`，将输出记录到 overall.baseline_snapshot_ref 和 overall.checkpoint_ref。完整初始内容快照支持无 HEAD 工程；只排除指定 checkpoint、审查文件与 `.yss/evidence`，交付时比较新增、删除和修改，检查是否超出所有切片授权路径。审查输入必须覆盖整个授权实现范围。新增合同应选择具体模块和文件，避免把整个仓库作为可写范围。
 
 DTO 字节码工具为 `node scripts/inspect-dto-dependency.mjs`，通过环境变量 YSS_DTO_JAR 指向当前依赖 JAR。输出包含 JAR 摘要和 public 签名，不读取 sources.jar；序列化形状仍需真实 HTTP 检查。
+
+## Checkpoint 初始化与错误恢复
+
+新需求先整理真实 Spec 和稳定 AC ID，再运行 `node scripts/init-acceptance-checkpoint.mjs --goal "用户目标" --baseline docs/.scratch/<feature>/spec.md --output docs/.scratch/<feature>/checkpoint.yaml`。命令从基线计算摘要和精确 ID，按本项目策略/schema 校验后创建记录，不覆盖已有文件，不宣布实现或验收完成。输出采用 JSON（有效 YAML）以避免手写序列化错误。
+
+校验失败先区分记录格式、过期输入和真实业务阻塞。缺必填字段、非法状态及错误引用属于工程修复：读取 schema v2 和验收模板，依据现有目标/Spec 修复原记录；保留已有切片、阻塞、Review 和证据，不以空数组重置进度。未知字段若承载有效信息，先保存在可追踪的原始备份，再迁移到对应资产。schema v1 保持只读，另建 v2 并保留 legacy_ref。
+
+摘要变化须先分析基线差异并刷新受影响合同与证据，不能只换摘要使旧证据继续有效。没有真实验收基线时继续需求分析；只有资料确实缺失、歧义、冲突或超授权才询问用户。重新执行 `node scripts/verify-lifecycle-checkpoint <记录路径>` 成功后继续生命周期，不把自身格式错误作为停止整个需求的理由。

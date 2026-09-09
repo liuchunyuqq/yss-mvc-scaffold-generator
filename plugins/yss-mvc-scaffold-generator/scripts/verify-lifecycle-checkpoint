@@ -30,5 +30,6 @@ try {
   process.stdout.write("生命周期 checkpoint 验证通过\n");
 } catch (error) {
   process.stderr.write(`生命周期 checkpoint 验证失败: ${error.message}\n`);
+  process.stderr.write('恢复指引：字段/状态错误按 docs/process/templates/acceptance-checkpoint-template.yaml 修复原记录并重验，保留已有切片与证据；新记录使用 scripts/init-acceptance-checkpoint.mjs。过期输入先分析差异并刷新。仅格式错误不构成用户阻塞，详见 docs/process/development-gate.md。\n');
   process.exitCode = 1;
 }

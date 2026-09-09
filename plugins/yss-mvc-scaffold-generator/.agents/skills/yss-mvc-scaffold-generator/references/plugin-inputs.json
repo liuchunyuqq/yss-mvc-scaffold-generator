@@ -19,7 +19,7 @@
   "script_files": [
     "verify-development.mjs", "verify-java-web.mjs", "run-governance-check.mjs", "verify-mvc-structure.mjs", "capture-governance-baseline.mjs", "inspect-dto-dependency.mjs",
     "applicable-standards.mjs",
-    "acceptance-action.mjs", "check-agent-environment.mjs",
+    "acceptance-action.mjs", "init-acceptance-checkpoint.mjs", "check-agent-environment.mjs",
     "implementation-path-policy",
     "repository-mode",
     "repository-scope-policy",
