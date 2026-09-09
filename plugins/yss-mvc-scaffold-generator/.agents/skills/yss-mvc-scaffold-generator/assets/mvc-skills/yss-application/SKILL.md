@@ -7,6 +7,8 @@ description: 用于 YSS Java 8 MVC 后端固定六模块中的 yss-application �
 
 用例接口和编排位于 `core/.../core/service`，执行 seam 位于 `core/.../core/gateway`；沿用现有 `AnalysisQueryService` / `AnalysisQueryExecutor` 模式。core 可以依赖 client，不能依赖 Spring MVC、具体数据源或 Oracle 驱动。
 
+业务 Service 定义为接口，实现在 `service/impl/*ServiceImpl`，Controller 依赖接口。接口 Javadoc 说明用途、输入限制、返回语义和失败情况；Impl 说明关键规则、事务、副作用、并发和边界。规则注释关联实际 rule_id 与业务原因。不得用方法名翻译或空注释冒充语义说明；由 AST 检查缺失，由独立 Review 核对真实性。
+
 通过构造器注入已有执行接口，由 server 装配 adapter 实现。事务边界按当前 validated 工程合同放在可控制实际数据库事务的位置；先检查依赖和代理，不机械地为纯 core 类添加 Spring 注解。涉及 DTO 转换时消费 mapstruct，POJO 样板按 lombok 和项目现有约定处理。
 
 验收覆盖输入、空结果、分页、执行器失败和事务边界等实际命中行为。MVC 用例不要求 Domain Aggregate、Domain Service 或 target-domain-model。

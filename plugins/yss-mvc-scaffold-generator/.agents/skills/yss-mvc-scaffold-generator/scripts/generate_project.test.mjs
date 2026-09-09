@@ -30,6 +30,11 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   const controller = await readFile(path.join(backend, "server/src/main/java/com/yss/dataanalysis/item1/server/controller/AnalysisController.java"), "utf8"); assert.match(controller, /\/api\/analysis/); assert.doesNotMatch(controller, /;[ \t]+import /);
   assert.match(controller, /\* \u6570\u636e\u5206\u6790\u67e5\u8be2\u63a5\u53e3\u3002/);
   assert.match(controller, /@author Scaffold Tester/);
+  assert.match(controller, /PageResult<HashMap<String, Object>> query/);
+  const service=await readFile(path.join(backend,'core/src/main/java/com/yss/dataanalysis/item1/core/service/AnalysisQueryService.java'),'utf8');
+  assert.match(service,/interface AnalysisQueryService/);
+  const serviceImpl=await readFile(path.join(backend,'core/src/main/java/com/yss/dataanalysis/item1/core/service/impl/AnalysisQueryServiceImpl.java'),'utf8');
+  assert.match(serviceImpl,/implements AnalysisQueryService/);
   assert.match(controller, /@date \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}/);
   assert.match(controller, /\* \u5206\u9875\u67e5\u8be2\u6570\u636e\u5206\u6790\u7ed3\u679c\u3002[\s\S]*@param query[\s\S]*@return \u6570\u636e\u5206\u6790\u5206\u9875\u7ed3\u679c/);
   const mock = await readFile(path.join(backend, "adapter/src/main/java/com/yss/dataanalysis/item1/adapter/mock/MockAnalysisQueryExecutor.java"), "utf8"); assert.match(mock, /source|"mock"/);

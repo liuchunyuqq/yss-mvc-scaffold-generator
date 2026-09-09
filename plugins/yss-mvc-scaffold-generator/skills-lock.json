@@ -1303,7 +1303,7 @@
         "source": "project",
         "sourceType": "local",
         "skillPath": ".agents/skills/yss-implementation-contract-compiler/SKILL.md",
-        "effectiveHash": "96132d9c53c7d2603fb8493a41838732ab9973ccd81191f85e262660dab94365",
+        "effectiveHash": "2a4b6fe270d288a9de2de5230d0bffe1bfd96e7438ef9a011e235547ae43e87d",
         "targets": [
           ".agents/skills",
           ".claude/skills",
@@ -1333,7 +1333,7 @@
         "source": "project",
         "sourceType": "local",
         "skillPath": ".agents/skills/yss-mvc-scaffold-generator/SKILL.md",
-        "effectiveHash": "ee9a412802c4376162da2b80c17043ad6402e6b59f528cd8c4337105399bd104",
+        "effectiveHash": "0f8637232f0463250fb699e38af76e229bf3bbbe2b6214c7b2b2c74d32496e56",
         "targets": [
           ".agents/skills",
           ".claude/skills",

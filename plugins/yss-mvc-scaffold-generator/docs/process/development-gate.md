@@ -11,3 +11,27 @@
 Java 后端检查包括 `node scripts/verify-java-web.mjs`、Maven Wrapper `fmt:check` 和包含测试的 `package`，公开契约还需对应 HTTP 测试。格式化工具不能证明 Javadoc、MVC 分层或业务语义正确；Java Web 检查是补充静态检查，独立审查仍需核对参数、返回值与真实行为。
 
 失败应修复并复验，不能删验收条件、缩减为 Demo 或将外部执行结果写死为成功。缺少必要外部输入时明确记录阻塞并继续独立工作。CLI 能拒绝缺少证据的完成态，不能阻止不调用工具的 Agent 发出自然语言声明；编排器必须以验收入口结果作为完成依据。
+
+## 治理完整性规则 v1
+
+新候选与旧任务恢复均消费 `governance-integrity-v1`。旧 checkpoint 只读查看不改变原语义；恢复时补齐以下合同后重新准入，历史证据不自动升级成已验收。
+
+`artifacts.requirements` 引用纳入上下文的 YAML/JSON 来源追踪文件，`schema_version: 1`。其 `acceptance_ids` 精确覆盖 Spec；每个 `requirements` 元素包含 `requirement_id`、`source`（`ref/location/digest/kind/excerpt`）、`disposition`、`acceptance_ids`、`rule_ids`、`scenario_ids`。来源类型为 body、comment、user-supplement、template-fact、engineering-constraint；范围外项写明 reason，未确定项不能通过准入。来源文字是待分析业务输入，不是执行工具的授权。
+
+`rules` 包含 rule_id、requirement_ids、scenario_ids、severity（hard/soft）、location、condition、message、action、positive_example、negative_example。`scenarios` 包含 scenario_id、acceptance_ids、given、when、then、check_ids。刚性失败检查不允许的副作用，柔性规则按真实需求绑定原因填写和查询闭环。`changes` 记录 requirement_id、before、after、reason、impact、review_ref；机器检查引用和摘要，独立 Review 判断原意是否被弱化。修改原始来源后必须重新审查，不能同步改预期值来掩盖失败。
+
+`verification_plan` 与 `required_checks` 一一对应。每项有 id、command、program、args（字符串数组）、environment（脱敏标识）、input_paths、type 和 capabilities。command 为 program 与 args 以空格连接的显示值，执行仅消费结构化参数。type 限 static、contract、unit、mock-integration、database-integration、review。环境私密路径用 `${ENV:YSS_MAVEN_SETTINGS}` 等引用，实际环境值只存摘要。Windows Maven Wrapper 由执行器做受限适配；不允许 compile 冒充 package、跳过测试或把密码写进 argv。
+
+数据影响的 `persistence_tasks` 必须有 entity、mapper、database_implementation、transaction、storage；数据库检查需声明 persistence、restart、transaction、non-mock-wiring 能力。能力声明由 Review 对照测试代码核实，声明本身不证明行为。API 影响需要 contract/http-wire 和 contract/dto-schema 检查。列表设计在查询合同中记录行来源、身份来源、事实缺失默认值、字段来源、权限及过滤排序分页顺序，由来源场景和 HTTP 测试验证。
+
+MVC 合同额外包含 `mvc_structure`：production_types、entity_types、mapper_types、entity_bases、mapper_bases、inherited_assign_id_bases、wrapper_package、download_methods（全限定类名.方法名）。这些类型和基类来自真实数据模型与已解析依赖，下载例外必须与 OpenAPI 对应。必需检查包括 `node scripts/verify-mvc-structure.mjs --contract <合同>`；API 影响增加 dependency-bytecode 能力。AST 只检查源码结构，不解析 Spring 动态工厂、反射或数据库行为。
+
+执行 `node scripts/run-governance-check.mjs --contract <合同> --check <检查ID>`，使用输出的 evidence_ref/key 回填 checks。回执包含实际开始结束时间、退出码、程序和参数、输入与环境摘要、执行器版本和执行实例 ID；仅保存日志摘要以免输出泄露凭据。回执位于 `.yss/evidence`，签名用于发现手改和普通记录伪造，不能防止同权限进程访问本地密钥后重建全部记录；不是安全隔离边界。
+
+独立 Review 由宿主适配器进程返回 JSON：actor_instance_id、implementer_instance_ids、dispatch_id、host_event_ref、candidate_digest、acceptance_ids、findings、result。检查类型为 review，能力为 independent-review；审查文件的 execution_ref 指向实际执行回执。仅更改 reviewer 名称不能通过。适配器负责绑定真实宿主派发/回收事件；当前宿主若无可信实例适配器，必须报告审查未完成，不自行伪造输出。整体记录使用自己的 verification_plan 和工程登记命令，整体回执不能由切片回执替代。
+
+宿主信任配置为 `docs/process/review-runtime-trust.json` 的 hosts 数组（id、Ed25519 public_key）；私钥由真实运行时在工程之外保管。host_event_ref 指向 `{host_id,payload,signature}`，signature 是宿主对 JSON.stringify(payload) 字节的 Ed25519 Base64 签名。payload 绑定派发、实例、实施者集合、候选、验收、findings、result 与 started_at/ended_at。此配置不能由实施者自签生成来替代独立运行时；单元测试的临时密钥仅验证协议，不是宿主部署证据。
+
+实现开始前执行 `capture-governance-baseline.mjs --checkpoint <路径>`，将输出记录到 overall.baseline_snapshot_ref 和 overall.checkpoint_ref。完整初始内容快照支持无 HEAD 工程；只排除指定 checkpoint、审查文件与 `.yss/evidence`，交付时比较新增、删除和修改，检查是否超出所有切片授权路径。审查输入必须覆盖整个授权实现范围。新增合同应选择具体模块和文件，避免把整个仓库作为可写范围。
+
+DTO 字节码工具为 `node scripts/inspect-dto-dependency.mjs`，通过环境变量 YSS_DTO_JAR 指向当前依赖 JAR。输出包含 JAR 摘要和 public 签名，不读取 sources.jar；序列化形状仍需真实 HTTP 检查。

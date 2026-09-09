@@ -1,6 +1,6 @@
 {
   "name": "yss-mvc-scaffold-generator",
-  "version": "1.1.1+codex.20260908094044",
+  "version": "1.2.0-rc.1",
   "description": "Create YSS Java 8 MVC backend projects and restore their external MVC skillUtils environment.",
   "author": {
     "name": "liuchunyuqq",

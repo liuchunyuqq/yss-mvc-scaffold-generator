@@ -9,7 +9,8 @@ export async function assertEmpty(target) {
 
 export async function put(root, relative, content, author) {
   const target = path.join(root, relative);
-  const rendered = author ? content.replaceAll("@author system", `@author ${author}`) : content;
+  let rendered = author ? content.replaceAll("@author system", `@author ${author}`) : content;
+  if(relative.endsWith('.java')) rendered=rendered.replace(/(?:^import (?!static )[^\n]+\n)+/gm, block=>block.trimEnd().split('\n').sort().join('\n')+'\n');
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, `${rendered.trim()}\n`, "utf8");
 }
