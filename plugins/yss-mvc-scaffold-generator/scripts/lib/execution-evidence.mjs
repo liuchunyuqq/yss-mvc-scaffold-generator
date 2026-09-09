@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, randomUUID, verify } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -32,7 +32,7 @@ export function snapshotInputs(root, refs) {
 }
 
 export function checkInputs(root, contract, check) {
-  return snapshotInputs(root,[...contract.allowed_write_paths,...check.input_paths,...Object.values(contract.artifacts??{}),...(contract.input_refs??[]),...(check.type==='review'?['docs/process/review-runtime-trust.json']:[])]);
+  return snapshotInputs(root,[...contract.allowed_write_paths,...check.input_paths,...Object.values(contract.artifacts??{}),...(contract.input_refs??[])]);
 }
 
 function executionContext(check) {
@@ -74,7 +74,7 @@ export function runCheck(root, contract, check) {
   if(check.type==='review') {
     try {
       const result=JSON.parse(run.stdout);
-      evidence.review_result=Object.fromEntries(['actor_instance_id','implementer_instance_ids','dispatch_id','host_event_ref','candidate_digest','acceptance_ids','findings','result'].map(k=>[k,result[k]??null]));
+      evidence.review_result=Object.fromEntries(['actor_instance_id','implementer_instance_ids','dispatch_id','candidate_digest','acceptance_ids','findings','result'].map(k=>[k,result[k]??null]));
     } catch {evidence.exit_code=-1;}
   }
   evidence.key=evidenceKey(evidence);
@@ -101,24 +101,22 @@ export function verifyExecutionReceipt(root, provided, contract, check) {
   return errors;
 }
 
-// 宿主适配器的独立实例记录必须由检查进程实际返回；名称差异本身没有证明力。
+// 原生子 agent 回收记录不需要外部适配器；旧进程回执仍校验执行完整性。
 export function verifyReviewRuntime(root, review, contract) {
   try {
     const receipt=JSON.parse(readFileSync(projectPath(root,review.execution_ref),'utf8'));
-    const definition=contract.verification_plan?.find(c=>c.id===receipt.check_id && c.type==='review' && c.capabilities.includes('independent-review'));
-    if(!definition) return ['独立审查缺少运行时检查定义'];
-    const errors=verifyExecutionReceipt(root,receipt,contract,definition);
-    const result=receipt.review_result;
-    if(!result || result.candidate_digest!==review.candidate_digest || result.actor_instance_id!==review.reviewer || !result.dispatch_id || !result.host_event_ref || !Array.isArray(result.implementer_instance_ids) || !result.implementer_instance_ids.length || result.implementer_instance_ids.includes(result.actor_instance_id)) errors.push('独立审查没有可追踪的独立执行实例');
+    const errors=[];
+    let result=receipt;
+    if(receipt.kind!=='subagent-review') {
+      const definition=contract.verification_plan?.find(c=>c.id===receipt.check_id && c.type==='review' && c.capabilities.includes('independent-review'));
+      if(!definition) return ['独立审查缺少运行时检查定义'];
+      errors.push(...verifyExecutionReceipt(root,receipt,contract,definition));
+      result=receipt.review_result;
+    }
+    if(!result || result.candidate_digest!==review.candidate_digest || result.actor_instance_id!==review.reviewer || typeof result.dispatch_id!=='string' || !result.dispatch_id.trim() || !Array.isArray(result.implementer_instance_ids) || !result.implementer_instance_ids.length || result.implementer_instance_ids.includes(result.actor_instance_id)) errors.push('独立审查没有可追踪的独立执行实例');
     if(result?.result!=='pass' || JSON.stringify(result?.findings)!==JSON.stringify(review.findings) || JSON.stringify(result?.acceptance_ids)!==JSON.stringify(review.acceptance_ids)) errors.push('独立审查回收结果不匹配');
-    const trust=JSON.parse(readFileSync(projectPath(root,'docs/process/review-runtime-trust.json'),'utf8'));
-    const event=JSON.parse(readFileSync(projectPath(root,result.host_event_ref),'utf8'));
-    const host=trust.hosts?.find(h=>h.id===event.host_id);
-    const payload=event.payload;
-    if(!host?.public_key || !verify(null,Buffer.from(JSON.stringify(payload)),host.public_key,Buffer.from(event.signature??'','base64'))) errors.push('独立审查宿主签名无效');
-    if(payload?.actor_instance_id!==result.actor_instance_id || payload?.dispatch_id!==result.dispatch_id || payload?.candidate_digest!==review.candidate_digest || payload?.result!==review.result || JSON.stringify(payload?.findings)!==JSON.stringify(review.findings) || JSON.stringify(payload?.acceptance_ids)!==JSON.stringify(review.acceptance_ids)) errors.push('独立审查宿主回收事件不匹配');
-    if(!Array.isArray(payload?.implementer_instance_ids) || JSON.stringify(payload.implementer_instance_ids)!==JSON.stringify(review.implementers) || payload.implementer_instance_ids.includes(payload.actor_instance_id)) errors.push('独立审查宿主实施者集合不匹配');
-    if(!payload?.started_at || !payload?.ended_at || !(Date.parse(payload.started_at)<=Date.parse(payload.ended_at))) errors.push('独立审查宿主时间缺失');
+    if(JSON.stringify(result?.implementer_instance_ids)!==JSON.stringify(review.implementers)) errors.push('独立审查实施者集合不匹配');
+    if(!(Date.parse(receipt.started_at)<=Date.parse(receipt.ended_at)) || Date.parse(receipt.ended_at)>Date.now()+1000) errors.push('独立审查时间无效');
     return errors;
   } catch {return ['独立审查缺少执行器回收记录'];}
 }

@@ -28,9 +28,9 @@ MVC 合同额外包含 `mvc_structure`：production_types、entity_types、mappe
 
 执行 `node scripts/run-governance-check.mjs --contract <合同> --check <检查ID>`，使用输出的 evidence_ref/key 回填 checks。回执包含实际开始结束时间、退出码、程序和参数、输入与环境摘要、执行器版本和执行实例 ID；仅保存日志摘要以免输出泄露凭据。回执位于 `.yss/evidence`，签名用于发现手改和普通记录伪造，不能防止同权限进程访问本地密钥后重建全部记录；不是安全隔离边界。
 
-独立 Review 由宿主适配器进程返回 JSON：actor_instance_id、implementer_instance_ids、dispatch_id、host_event_ref、candidate_digest、acceptance_ids、findings、result。检查类型为 review，能力为 independent-review；审查文件的 execution_ref 指向实际执行回执。仅更改 reviewer 名称不能通过。适配器负责绑定真实宿主派发/回收事件；当前宿主若无可信实例适配器，必须报告审查未完成，不自行伪造输出。整体记录使用自己的 verification_plan 和工程登记命令，整体回执不能由切片回执替代。
+独立 Review 由不同于实施者的子 agent 执行，主控从真实派发和回收结果落盘 JSON：kind 为 subagent-review，包含 actor_instance_id、implementer_instance_ids、dispatch_id、candidate_digest、acceptance_ids、findings、result、started_at 和 ended_at。审查文件的 execution_ref 指向该记录；派发 ID 和实例 ID 使用运行时实际值，不得改名冒充独立执行或编造审查结果。校验器核对记录一致性，不将本地 JSON 视为不可伪造的身份证明。缺少真实 Review 仍不能完成验收，修复后重新审查当前候选。
 
-宿主信任配置为 `docs/process/review-runtime-trust.json` 的 hosts 数组（id、Ed25519 public_key）；私钥由真实运行时在工程之外保管。host_event_ref 指向 `{host_id,payload,signature}`，signature 是宿主对 JSON.stringify(payload) 字节的 Ed25519 Base64 签名。payload 绑定派发、实例、实施者集合、候选、验收、findings、result 与 started_at/ended_at。此配置不能由实施者自签生成来替代独立运行时；单元测试的临时密钥仅验证协议，不是宿主部署证据。
+原生子 agent Review 不需要外部适配器、宿主信任配置、公私钥或签名，也不要求将 Review 包装为 verification_plan 中的外部命令。已有 type 为 review、能力为 independent-review 的进程回执仍可使用，继续检查执行完整性和审查结果，但不再消费宿主签名。整体记录使用自己的 Review、verification_plan 和工程登记命令，整体回执不能由切片回执替代；测试、构建等自动检查仍必须提供真实执行回执。
 
 实现开始前执行 `capture-governance-baseline.mjs --checkpoint <路径>`，将输出记录到 overall.baseline_snapshot_ref 和 overall.checkpoint_ref。完整初始内容快照支持无 HEAD 工程；只排除指定 checkpoint、审查文件与 `.yss/evidence`，交付时比较新增、删除和修改，检查是否超出所有切片授权路径。审查输入必须覆盖整个授权实现范围。新增合同应选择具体模块和文件，避免把整个仓库作为可写范围。
 
