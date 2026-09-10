@@ -1,13 +1,17 @@
 # YSS MVC Scaffold Generator
 
-这是一个 Codex 插件，用于：
+这是一个同时兼容 Codex 与 Claude Code 的插件，用于：
 
 - 在空目录初始化独立 Git 管理的 YSS Java 8 MVC 数据分析项目；
 - 为已克隆的 MVC 项目恢复或升级相邻的 `skillUtils` 开发环境。
 
 生成项目固定包含 `server`、`core`、`client`、`repository`、`adapter`、`feign-client` 六个 Maven 模块，支持 Oracle、OceanBase Oracle 和可选 Mock Profile。
 
+两个平台共用同一份插件目录 `plugins/yss-mvc-scaffold-generator` 和同一个 Skill；区别只在清单文件：Codex 读取 `.agents/plugins/marketplace.json` 与 `.codex-plugin/plugin.json`，Claude Code 读取 `.claude-plugin/marketplace.json` 与 `.claude-plugin/plugin.json`。两套清单的 marketplace 名称（`personal`）、插件名、版本和描述保持一致。
+
 ## 从 GitHub 安装
+
+### Codex
 
 稳定版本使用 `main` 分支：
 
@@ -34,6 +38,31 @@ codex plugin list
 
 安装或重新安装后，请新建 Codex 任务再使用插件，以确保新 Skill 和工具被加载。
 
+### Claude Code
+
+在终端执行（`main` 为稳定分支）：
+
+```bash
+claude plugin marketplace add liuchunyuqq/yss-mvc-scaffold-generator
+claude plugin install yss-mvc-scaffold-generator@personal
+```
+
+也可以在 Claude Code 会话内使用斜杠命令：
+
+```text
+/plugin marketplace add liuchunyuqq/yss-mvc-scaffold-generator
+/plugin install yss-mvc-scaffold-generator@personal
+```
+
+测试指定开发分支时，改用带分支的 Git URL：
+
+```bash
+claude plugin marketplace add https://github.com/liuchunyuqq/yss-mvc-scaffold-generator.git#codex/mvc-environment-restore
+claude plugin install yss-mvc-scaffold-generator@personal
+```
+
+`personal` 同样是 `.claude-plugin/marketplace.json` 声明的名称。如果本机已经添加过另一个同名 marketplace，先运行 `claude plugin marketplace list` 确认，必要时先 `claude plugin marketplace remove personal` 再添加。安装后新开一个 Claude Code 会话，用 `/plugin` 或直接询问“有哪些 skill”确认 `yss-mvc-scaffold-generator` 已被发现。
+
 ## 从本地源码安装
 
 本地开发或验证未发布修改时，先克隆仓库并切换到需要测试的分支：
@@ -45,12 +74,23 @@ git -C D:\localProject\yss-mvc-scaffold-generator switch codex/mvc-environment-r
 
 然后把仓库根注册为本地 marketplace，并安装插件：
 
+Codex：
+
 ```powershell
 codex plugin marketplace add D:\localProject\yss-mvc-scaffold-generator
 codex plugin add yss-mvc-scaffold-generator@personal
 ```
 
-本地 marketplace 只需注册一次。后续修改源码后，应先完成插件校验。若只是本地迭代、尚未发布新版本，使用 Codex 自带的 `plugin-creator` helper 更新单一 cachebuster：
+Claude Code：
+
+```powershell
+claude plugin marketplace add D:\localProject\yss-mvc-scaffold-generator
+claude plugin install yss-mvc-scaffold-generator@personal
+```
+
+Claude Code 从本地路径安装时会把插件目录复制到自己的缓存；本地修改源码后，执行 `claude plugin marketplace update personal` 再 `claude plugin update yss-mvc-scaffold-generator@personal`（或先 `uninstall` 再 `install`），并新开会话使改动生效。
+
+本地 marketplace 只需注册一次。后续修改源码后，应先完成插件校验。若只是本地迭代、尚未发布新版本，Codex 侧使用自带的 `plugin-creator` helper 更新单一 cachebuster：
 
 ```powershell
 python "$env:USERPROFILE\.codex\skills\.system\plugin-creator\scripts\read_marketplace_name.py" --marketplace-path D:\localProject\yss-mvc-scaffold-generator\.agents\plugins\marketplace.json
@@ -63,11 +103,11 @@ python "$env:USERPROFILE\.codex\skills\.system\plugin-creator\scripts\update_plu
 codex plugin add yss-mvc-scaffold-generator@personal
 ```
 
-不要直接编辑 `.agents/plugins/marketplace.json`、Codex 配置文件或 `~/.codex/plugins/cache` 下的安装副本。若插件实际由另一个本地 marketplace 提供，使用 `codex plugin list` 确认来源，并从该 marketplace 重新安装。
+不要直接编辑 `.agents/plugins/marketplace.json`、`.claude-plugin/marketplace.json`、Codex/Claude 配置文件或各自插件缓存下的安装副本。若插件实际由另一个本地 marketplace 提供，使用 `codex plugin list` / `claude plugin list` 确认来源，并从该 marketplace 重新安装。
 
 ## 初始化新项目
 
-推荐在 Codex 中明确提供目标目录、项目名、基础包、数据库类型以及是否启用 Mock：
+推荐在 Codex 或 Claude Code 中明确提供目标目录、项目名、基础包、数据库类型以及是否启用 Mock：
 
 ```text
 使用 yss-mvc-scaffold-generator，在 C:\projects\sales-analysis 初始化项目。
@@ -91,7 +131,7 @@ Skill 会先执行 dry-run，核对参数和目标目录后再正式生成。目
 
 ## 恢复已克隆项目的环境
 
-项目源码已 clone，但相邻 `skillUtils` 缺失时，可以在 Codex 中说：
+项目源码已 clone，但相邻 `skillUtils` 缺失时，可以在 Codex 或 Claude Code 中说：
 
 ```text
 使用 yss-mvc-scaffold-generator，为 D:\work\analysis-service 恢复相邻 skillUtils。
@@ -113,7 +153,7 @@ node scripts/restore_environment.mjs --project-root D:\work\analysis-service --d
 
 ### 1. 更新并重新安装插件
 
-GitHub marketplace 安装：
+Codex，GitHub marketplace 安装：
 
 ```bash
 codex plugin marketplace upgrade personal
@@ -121,18 +161,25 @@ codex plugin remove yss-mvc-scaffold-generator
 codex plugin add yss-mvc-scaffold-generator@personal
 ```
 
-本地源码安装：
+Codex，本地源码安装：
 
 ```powershell
 git -C D:\localProject\yss-mvc-scaffold-generator pull --ff-only
 codex plugin add yss-mvc-scaffold-generator@personal
 ```
 
-如果 marketplace 名称不是 `personal`，使用 `codex plugin list` 确认实际来源并替换命令。完成后新建 Codex 任务，使更新后的插件生效。
+Claude Code（GitHub 或本地源码安装相同；本地源码先 `git pull --ff-only`）：
+
+```bash
+claude plugin marketplace update personal
+claude plugin update yss-mvc-scaffold-generator@personal
+```
+
+如果 marketplace 名称不是 `personal`，使用 `codex plugin list` / `claude plugin list` 确认实际来源并替换命令。完成后新建 Codex 任务或 Claude Code 会话，使更新后的插件生效。
 
 ### 2. 检查目标项目是否需要升级
 
-在新任务中要求 Codex：
+在新任务中要求 Codex 或 Claude Code：
 
 ```text
 使用 yss-mvc-scaffold-generator，检查 D:\work\analysis-service 的 MVC 环境是否需要升级。
@@ -148,7 +195,7 @@ node scripts/restore_environment.mjs --project-root D:\work\analysis-service --c
 
 ### 3. 显式升级项目环境
 
-确认检查结果后要求 Codex：
+确认检查结果后要求 Codex 或 Claude Code：
 
 ```text
 使用 yss-mvc-scaffold-generator，升级 D:\work\analysis-service 的 MVC skillUtils 环境。
@@ -164,7 +211,7 @@ node scripts/restore_environment.mjs --project-root D:\work\analysis-service --u
 
 `--upgrade` 只更新相邻 `skillUtils` 及其平台投影，不更新项目中的 Java、POM、Spec、Ticket 或治理文档，也不会重新运行项目初始化。若新插件版本改变了生成工程结构，需要按发行说明单独制定项目迁移方案，不能靠重新执行脚手架覆盖已有项目。
 
-升级完成后，应在目标项目中执行其登记的验证命令，并再次新建 Codex 任务，确认项目实际发现了更新后的 Skills。`FILES_READY` 只证明文件已就绪，不等于 Agent 已加载，也不等于项目通过业务或发布门禁。
+升级完成后，应在目标项目中执行其登记的验证命令，并再次新建 Codex 任务或 Claude Code 会话，确认项目实际发现了更新后的 Skills。`FILES_READY` 只证明文件已就绪，不等于 Agent 已加载，也不等于项目通过业务或发布门禁。
 
 ## 插件维护与发布
 
@@ -188,8 +235,13 @@ node scripts/restore_environment.mjs --project-root D:\work\analysis-service --u
 同步后至少运行：
 
 ```bash
+node scripts/verify-plugin-manifests.mjs
 node --test plugins/yss-mvc-scaffold-generator/skills/yss-mvc-scaffold-generator/scripts/generate_project.test.mjs plugins/yss-mvc-scaffold-generator/skills/yss-mvc-scaffold-generator/scripts/restore_environment.test.mjs
 node plugins/yss-mvc-scaffold-generator/skills/yss-mvc-scaffold-generator/scripts/verify_plugin_integration.mjs plugins/yss-mvc-scaffold-generator
 ```
 
-发布时同步更新 `plugins/yss-mvc-scaffold-generator/.codex-plugin/plugin.json` 的版本，完成仓库要求的验证后再提交和推送。不要直接维护插件内 `.agents/skills` 或 `skills` 的生成副本。
+`verify-plugin-manifests.mjs` 校验 Codex 与 Claude Code 两套 marketplace.json / plugin.json 的名称、版本（忽略 `+codex.*` 后缀）、描述、作者、skills 路径一致，并确认 `skills/yss-mvc-scaffold-generator/SKILL.md` 存在且 frontmatter 合法；任一不一致即以非零退出。
+
+发布时同步更新 `plugins/yss-mvc-scaffold-generator/.codex-plugin/plugin.json` 与 `plugins/yss-mvc-scaffold-generator/.claude-plugin/plugin.json` 的版本（两者必须一致；Codex 本地迭代追加的 `+codex.*` 后缀除外），完成仓库要求的验证后再提交和推送。不要直接维护插件内 `.agents/skills` 或 `skills` 的生成副本。
+
+两份 plugin.json 由本仓库直接维护，不属于 `sync-from-source.ps1` 的同步范围。Claude Code 只读取 `skills/` 目录下的 Skill，`.agents/skills` 只是随插件分发、用于恢复项目 `skillUtils` 的资产，两个平台在这一点上行为一致。
