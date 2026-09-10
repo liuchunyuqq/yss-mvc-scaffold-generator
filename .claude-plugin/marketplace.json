@@ -1,0 +1,19 @@
+{
+  "name": "personal",
+  "owner": {
+    "name": "liuchunyuqq",
+    "email": "liuchunyu1@ysstech.com",
+    "url": "https://github.com/liuchunyuqq"
+  },
+  "metadata": {
+    "description": "YSS Team Plugins"
+  },
+  "plugins": [
+    {
+      "name": "yss-mvc-scaffold-generator",
+      "source": "./plugins/yss-mvc-scaffold-generator",
+      "description": "Create YSS Java 8 MVC backend projects and restore their external MVC skillUtils environment.",
+      "category": "Developer Tools"
+    }
+  ]
+}

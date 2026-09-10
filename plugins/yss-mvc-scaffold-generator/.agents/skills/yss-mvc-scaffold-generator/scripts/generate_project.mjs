@@ -15,6 +15,7 @@ import {
   exists,
 } from "./lib/runtime.mjs";
 import { assertEmpty, ensureSkillUtils, put, renderAsset } from "./lib/storage.mjs";
+import { recordGovernance } from "./lib/governance-migration.mjs";
 import { writeProjectEnvelope } from "./lib/envelope.mjs";
 import { modulePom, parentPom, writeJavaSources } from "./lib/templates.mjs";
 
@@ -74,11 +75,11 @@ function buildPlan(o, skillUtils, mavenSettings) {
 
 async function generate(o) {
   await assertEmpty(o.targetDir);
-  const skillUtils = await ensureSkillUtils(o.targetDir, { apply: !o.dryRun });
   assertGitAvailable();
   o.gitAuthor = resolveGitAuthor();
   generatedJavadocAuthor = o.gitAuthor;
   const mavenSettings = await resolveMavenSettings(o);
+  const skillUtils = await ensureSkillUtils(o.targetDir, { apply: !o.dryRun });
   const plan = buildPlan(o, skillUtils, mavenSettings);
   if (o.dryRun) {
     console.log(JSON.stringify({ mode: "dry-run", ...plan }, null, 2));
@@ -107,6 +108,7 @@ async function generate(o) {
     await writeGenerated(work.targetDir, "server/src/main/resources/smart-doc.json", await renderAsset("smart-doc.json.template", { PROJECT_NAME: o.projectName, BASE_PACKAGE: o.basePackage, GENERATED_AT: new Date().toISOString() }));
     await writeGenerated(staging, "README.md", `# ${o.projectName}\n\n项目根即 Maven 后端工程根，固定模块：${MODULES.join("、")}。\n\n## 依赖解析\n\n初始化阶段只生成文件和 Git 根，不执行 Maven，不下载依赖。未提供 settings 时仍会完整生成；后续验证时请使用 \`mvnw.cmd -s <settings.xml> validate\`（Windows）或 \`./mvnw -s <settings.xml> validate\`（Unix）。`);
     await writeProjectEnvelope(work);
+    await recordGovernance(staging);
     await copyWrapper(work.targetDir);
     if (process.env.NODE_ENV === "test" && process.env.YSS_SCAFFOLD_TEST_FAIL_AFTER_STAGING === "1") fail("测试注入：staging 后失败");
     initializeGit(staging);

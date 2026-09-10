@@ -1,0 +1,22 @@
+schema_version: 1
+policy_id: applicable-standards-v1
+# 只定义适用性，不复制规范正文。实现与 Review 消费同一解析器。
+repository_standards: [CODING_STANDARDS.md, CONTRIBUTING.md, docs/engineering/data-analysis-java-conventions.md]
+impact_skills:
+  backend_impact: [alibaba-java-code-style]
+  web-adapter-impact: [yss-web-controller, yss-dto]
+  mvc-use-case: [yss-application]
+  persistence-impact: [yss-repository]
+  mybatis-framework-impact: [yss-mybatis]
+  dto-wire-impact: [yss-dto]
+  request-validation: [yss-validation]
+  error-mapping: [yss-exception, yss-dto]
+  runtime-profile-impact: [yss-backend-runtime-verification]
+  mapper-registration-impact: [yss-backend-runtime-verification]
+  configuration-center-impact: [yss-backend-runtime-verification]
+  database-driver-impact: [yss-backend-runtime-verification]
+  external-resource-impact: [yss-backend-runtime-verification]
+  package-content-impact: [yss-backend-runtime-verification]
+  ui_impact: [yss-ui, yss-design-system]
+  domain-impact: [yss-domain, yss-application]
+review_procedure_skills: [code-review, handoff, yss-product-lifecycle, yss-implementation-contract-compiler]

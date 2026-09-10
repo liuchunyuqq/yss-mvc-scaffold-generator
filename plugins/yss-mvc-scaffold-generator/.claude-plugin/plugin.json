@@ -1,0 +1,21 @@
+{
+  "name": "yss-mvc-scaffold-generator",
+  "version": "1.2.0-rc.1",
+  "description": "Create YSS Java 8 MVC backend projects and restore their external MVC skillUtils environment.",
+  "author": {
+    "name": "liuchunyuqq",
+    "email": "liuchunyu1@ysstech.com",
+    "url": "https://github.com/liuchunyuqq"
+  },
+  "homepage": "https://github.com/liuchunyuqq/yss-mvc-scaffold-generator/tree/main/plugins/yss-mvc-scaffold-generator",
+  "repository": "https://github.com/liuchunyuqq/yss-mvc-scaffold-generator",
+  "keywords": [
+    "YSS",
+    "data-analysis",
+    "Java",
+    "Maven",
+    "scaffold",
+    "Oracle"
+  ],
+  "skills": "./skills/"
+}

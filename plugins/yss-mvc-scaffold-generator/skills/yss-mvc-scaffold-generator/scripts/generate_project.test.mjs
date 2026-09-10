@@ -21,12 +21,6 @@ function run(args, options = {}) {
     env: { ...process.env, ...gitAuthorEnvironment, ...(options.env ?? {}) }
   });
 }
-async function expectedDistributedLock() {
-  const lock = JSON.parse(await readFile(path.join(harnessRoot, "skills-lock.json"), "utf8"));
-  delete lock.skills?.shared?.["yss-mvc-scaffold-generator"];
-  for (const platform of Object.values(lock.skills?.platform ?? {})) delete platform?.["yss-mvc-scaffold-generator"];
-  return `${JSON.stringify(lock, null, 2)}\n`;
-}
 test("生成固定六模块和 mock endpoint", async (t) => {
   const base = await mkdtemp(path.join(os.tmpdir(), "data-analysis-scaffold-")); t.after(() => rm(base, { recursive: true, force: true }));
   const target = path.join(base, "item1"); const result = run(["--project-name", "data-analysis-item1", "--base-package", "com.yss.dataanalysis.item1", "--target-dir", target, "--database", "oracle", "--with-mock"]);
@@ -36,6 +30,11 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   const controller = await readFile(path.join(backend, "server/src/main/java/com/yss/dataanalysis/item1/server/controller/AnalysisController.java"), "utf8"); assert.match(controller, /\/api\/analysis/); assert.doesNotMatch(controller, /;[ \t]+import /);
   assert.match(controller, /\* \u6570\u636e\u5206\u6790\u67e5\u8be2\u63a5\u53e3\u3002/);
   assert.match(controller, /@author Scaffold Tester/);
+  assert.match(controller, /PageResult<HashMap<String, Object>> query/);
+  const service=await readFile(path.join(backend,'core/src/main/java/com/yss/dataanalysis/item1/core/service/AnalysisQueryService.java'),'utf8');
+  assert.match(service,/interface AnalysisQueryService/);
+  const serviceImpl=await readFile(path.join(backend,'core/src/main/java/com/yss/dataanalysis/item1/core/service/impl/AnalysisQueryServiceImpl.java'),'utf8');
+  assert.match(serviceImpl,/implements AnalysisQueryService/);
   assert.match(controller, /@date \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}/);
   assert.match(controller, /\* \u5206\u9875\u67e5\u8be2\u6570\u636e\u5206\u6790\u7ed3\u679c\u3002[\s\S]*@param query[\s\S]*@return \u6570\u636e\u5206\u6790\u5206\u9875\u7ed3\u679c/);
   const mock = await readFile(path.join(backend, "adapter/src/main/java/com/yss/dataanalysis/item1/adapter/mock/MockAnalysisQueryExecutor.java"), "utf8"); assert.match(mock, /source|"mock"/);
@@ -43,7 +42,25 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   await readFile(path.join(backend, "server/src/main/java/com/yss/dataanalysis/item1/Application.java"), "utf8");
   const controllerTest = await readFile(path.join(backend, "server/src/test/java/com/yss/dataanalysis/item1/server/controller/AnalysisControllerTest.java"), "utf8");
   assert.match(controllerTest, /pageNo/);
-  assert.match(await readFile(path.join(target, "yss-project.yaml"), "utf8"), /repository_mode: project-instance/);
+  const projectIdentity = await readFile(path.join(target, "yss-project.yaml"), "utf8");
+  assert.match(projectIdentity, /repository_mode: project-instance/);
+  assert.match(projectIdentity, /governance_profile: docs\/process\/mvc-governance-profile\.yaml/);
+  assert.match(await readFile(path.join(target, "docs/process/mvc-governance-profile.yaml"), "utf8"), /runtime_scope: backend-only/);
+  assert.match(await readFile(path.join(target, "AGENTS.md"), "utf8"), /acceptance-policy\.yaml/);
+  assert.match(await readFile(path.join(target, "package.json"), "utf8"), /verify-governance/);
+  for (const entry of ['verify-lifecycle-registry', 'verify-yss-dto-openapi-profile', 'verify-java-web.mjs', 'verify-mvc-governance-profile.mjs']) {
+    const checked = spawnSync(process.execPath, [path.join(target, 'scripts', entry)], { cwd: target, encoding: 'utf8' });
+    assert.equal(checked.status, 0, `${entry}: ${checked.stdout}${checked.stderr}`);
+  }
+  const missingCheckpoint = spawnSync(process.execPath, [path.join(target, 'scripts/verify-development.mjs')], { cwd: target, encoding: 'utf8' });
+  assert.equal(missingCheckpoint.status, 1);
+  assert.match(missingCheckpoint.stderr, /checkpoint/);
+  const compiled = spawnSync(process.execPath, ['--input-type=module', '-e', "import {compileDefaultImplementationContract} from './scripts/lib/implementation-contract-compiler.mjs'; const c=compileDefaultImplementationContract({recipeIds:['backend.mvc-use-case']}); if(!c.required_skills.includes('yss-application')) process.exit(1);"], { cwd: target, encoding: 'utf8' });
+  assert.equal(compiled.status, 0, compiled.stderr);
+  for (const skill of ['yss-web-controller','yss-repository','yss-application','yss-mybatis']) {
+    const rule = await readFile(path.join(path.dirname(target),'skillUtils/.agents/skills',skill,'SKILL.md'),'utf8');
+    assert.match(rule,/validated/); assert.doesNotMatch(rule,/已批准且版本当前|不因环境恢复自动批准/);
+  }
   assert.match(await readFile(path.join(target, "CONTEXT.md"), "utf8"), /AnalysisDataset/);
   assert.match(await readFile(path.join(target, ".artifact-workspace.yaml"), "utf8"), /kind: service/);
   assert.match(await readFile(path.join(target, "docs/service/module-map.md"), "utf8"), /feign-client/);
@@ -51,7 +68,7 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(await readFile(path.join(target, "docs/process/implementation-repo-registry.yaml"), "utf8"), /repository_scope: external-repository/);
   const analysisProject = await readFile(path.join(target, "docs/process/analysis-project.yaml"), "utf8"); assert.match(analysisProject, /project_name: data-analysis-item1/); assert.doesNotMatch(analysisProject, /galaxy-data-analysis|fegin-client/);
   assert.match(await readFile(path.join(target, "docs/process/lifecycle-registry.yaml"), "utf8"), /schema_version:/);
-  assert.match(await readFile(path.join(target, "docs/templates/vertical-slice-ticket-template.md"), "utf8"), /status: ready-for-human/);
+  assert.match(await readFile(path.join(target, "docs/templates/vertical-slice-ticket-template.md"), "utf8"), /validated/);
   assert.match(await readFile(path.join(target, "docs/templates/local-parent-ticket-template.md"), "utf8"), /lifecycle_status \| routing \/ running \/ paused-human-gate \/ blocked \/ completed/);
   const lifecycleContract = await readFile(path.join(skillUtils, ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml"), "utf8");
   assert.match(lifecycleContract, /entry_routing:/);
@@ -61,7 +78,7 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(await readFile(path.join(target, "docs/templates/implementation-routing-template.md"), "utf8"), /implementation/);
   assert.match(await readFile(path.join(target, "docs/templates/verification-record-template.md"), "utf8"), /verification/i);
   await readFile(path.join(skillUtils, ".agents/skills/yss-product-lifecycle/SKILL.md"), "utf8");
-  for (const projection of [".agents", ".claude", ".codex", ".cursor", ".hermes", ".pi", ".qoder", ".trae"]) {
+  for (const projection of [".agents", ".claude", ".codex", ".cursor", ".pi", ".qoder", ".trae"]) {
     await assert.rejects(stat(path.join(skillUtils, projection, "skills/yss-mvc-scaffold-generator")), { code: "ENOENT" });
   }
   assert.equal(path.resolve(spawnSync("git", ["-C", target, "rev-parse", "--show-toplevel"], { encoding: "utf8" }).stdout.trim()), path.resolve(target));
@@ -127,7 +144,7 @@ test("生成固定六模块和 mock endpoint", async (t) => {
   assert.match(databaseInfrastructure, /@Import\(MapperConfiguration.class\)/);
 });
 
-test("已有 skillUtils 落后时原子刷新并保留备份", async (t) => {
+test("旧 skillUtils 缺少 MVC 基线时保留现场并要求迁移", async (t) => {
   const base = await mkdtemp(path.join(os.tmpdir(), "data-analysis-skill-refresh-"));
   t.after(() => rm(base, { recursive: true, force: true }));
   const skillUtils = path.join(base, "skillUtils");
@@ -137,13 +154,10 @@ test("已有 skillUtils 落后时原子刷新并保留备份", async (t) => {
   await writeFile(path.join(skillUtils, "local-marker.txt"), "preserve old installation\n", "utf8");
   const target = path.join(base, "item-refresh");
   const result = run(["--project-name", "data-analysis-refresh", "--base-package", "com.yss.dataanalysis.refresh", "--target-dir", target]);
-  assert.equal(result.status, 0, result.stderr);
-  const output = JSON.parse(result.stdout);
-  assert.equal(output.skill_utils_created, false);
-  assert.equal(output.skill_utils_refreshed, true);
-  assert.ok(output.skill_utils_backup);
-  assert.equal(await readFile(path.join(output.skill_utils_backup, "local-marker.txt"), "utf8"), "preserve old installation\n");
-  assert.equal(await readFile(path.join(skillUtils, "skills-lock.json"), "utf8"), await expectedDistributedLock());
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /MIGRATION_REQUIRED/);
+  assert.equal(await readFile(path.join(skillUtils, "local-marker.txt"), "utf8"), "preserve old installation\n");
+  await assert.rejects(stat(target), { code: "ENOENT" });
 });
 
 test("已有 skillUtils 与源锁一致时直接复用", async (t) => {
@@ -159,7 +173,7 @@ test("已有 skillUtils 与源锁一致时直接复用", async (t) => {
   assert.equal(output.skill_utils_backup, null);
 });
 
-test("dry-run 仅报告 skillUtils 将刷新且不修改旧目录", async (t) => {
+test("dry-run 对无基线旧目录报告迁移且不修改现场", async (t) => {
   const base = await mkdtemp(path.join(os.tmpdir(), "data-analysis-skill-dry-refresh-"));
   t.after(() => rm(base, { recursive: true, force: true }));
   const skillUtils = path.join(base, "skillUtils");
@@ -167,10 +181,8 @@ test("dry-run 仅报告 skillUtils 将刷新且不修改旧目录", async (t) =>
   await writeFile(path.join(skillUtils, "skill-utils.yaml"), "schema_version: 1\nkind: yss-skill-utils\n", "utf8");
   await writeFile(path.join(skillUtils, "skills-lock.json"), "{\"version\":0}\n", "utf8");
   const result = run(["--project-name", "data-analysis-dry-refresh", "--base-package", "com.yss.dataanalysis.dryrefresh", "--target-dir", path.join(base, "item"), "--dry-run"]);
-  assert.equal(result.status, 0, result.stderr);
-  const output = JSON.parse(result.stdout);
-  assert.equal(output.skill_utils_refreshed, true);
-  assert.equal(output.skill_utils_backup, null);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /MIGRATION_REQUIRED/);
   assert.equal(await readFile(path.join(skillUtils, "skills-lock.json"), "utf8"), "{\"version\":0}\n");
   assert.deepEqual((await readdir(base)).sort(), ["skillUtils"]);
 });

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "./vendor/yaml.mjs";
-import { validateJsonSchema } from "./lib/json-schema-lite.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(root, "docs/process/schemas/frontend-implementation-evidence.schema.json");
@@ -27,7 +27,8 @@ try {
   const document = parseDocument(readFileSync(path.resolve(positionals[0]), "utf8"), { maxAliasCount: 0, uniqueKeys: true });
   if (document.errors.length) throw new TypeError(document.errors[0].message);
   const value = document.toJS({ maxAliasCount: 0 });
-  validateJsonSchema(value, JSON.parse(readFileSync(schemaPath, "utf8")));
+  const result = spawnSync("python3", ["-c", validator, schemaPath], { cwd: root, encoding: "utf8", input: JSON.stringify(value) });
+  if (result.status !== 0) throw new TypeError(`${result.stdout}${result.stderr}`.trim());
   if (!values["allow-template"] && value.template !== false) throw new TypeError("正式证据必须设置 template: false");
   if (!values["allow-template"] && value.status !== "approved") throw new TypeError("正式证据必须达到 status: approved");
   const serialized = JSON.stringify(value);

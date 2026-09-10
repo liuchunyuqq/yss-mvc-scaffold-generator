@@ -1,0 +1,19 @@
+schema_version: 2
+standards_context_version: 1
+policy_id: acceptance-driven-v1
+goal: 替换为用户需求
+baseline_ref: docs/.scratch/feature/spec.md
+baseline_digest: 替换为验收基线实际内容摘要
+acceptance_ids: [AC-1]
+status: running
+slices: []
+blockers: []
+next_work_unit: work-unit.discovery-requirements
+# 完成切片需 id、status、acceptance_ids、candidate_digest、review_ref、checks。
+# 新任务每切片另存 standards_ref、standards_digest、active_work_unit、contract_ref、contract_version。
+# standards_ref 指向 applicable-standards.mjs 输出；恢复先 --check --work-unit，再读取返回引用。
+# 切片 Review 保存 standards_digest；整体 Review 保存 standards_digests（slice id → digest）。
+# baseline_ref 绑定本需求验收条件；复用的工程规范也纳入 Review inputs，变更时使相关证据失效。
+# checks 每项保存 command、environment、key、evidence_ref；证据含 inputs（文件摘要映射）、command、environment、key、exit_code、executed_at。
+# overall 保存相同候选/检查字段和整体 review_ref，不得用局部 acceptance_ids 缩小整体验收范围。
+# Review 含 scope、inputs、candidate_digest、baseline_digest、result、reviewer、implementers、acceptance_ids、findings。

@@ -1,117 +1,22 @@
 ---
 name: code-review
-description: Use when the user wants to review a branch, PR, committed candidate, uncommitted work-in-progress changes, or changes since a fixed point.
+description: 独立审查切片或整体实现的验收覆盖、正确性和适用 YSS 工程规范，输出可定位 findings，驱动自主修复闭环。
 ---
 
-Review of a pinned candidate against a fixed point on two core axes, plus UI fidelity when UI is in scope:
+# Code Review
 
-- **Standards** — does the code conform to this repo's documented coding standards?
-- **Spec** — does the code faithfully implement the originating issue / spec?
-- **UI fidelity** (only when the change has UI impact) — does the candidate match the confirmed prototype and `yss-design-system` / `yss-ui`? Type-check or claiming "already aligned" is not a pass. Invoke those skills' verification notes; do not collapse this axis into Standards or Spec.
+按项目 `docs/process/implementation-standards-context.md` 使用共享适用规范解析器。先独立核对真实 diff 的影响面，再重算规范并检查来源摘要，不将实施者集合当作审查范围上限。报告绑定当前 standards_digest，恢复或新影响先刷新合同。Standards 适用性不再另行维护后端技能并集。
 
-Standards and Spec run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. When UI is in scope, add a separate UI fidelity pass after those two reports (do not merge it into either axis).
+先读用户目标、CONTEXT.md、工程基线、当前切片合同及其 required_skills。使用 references/yss-review-standards.md 中适用的 YSS / Alibaba 检查输入；不要为未触发影响生成空表或让个人偏好成为硬要求。
 
-If `docs/agents/issue-tracker.md` is missing, tell the user to run `/setup-matt-pocock-skills`; do not invoke another user-invoked skill yourself.
+## 审查执行
 
-## Process
+- project-instance 默认按 docs/process/acceptance-policy.yaml 执行。scope=slice 审查本切片验收、实现正确性与相关检查；scope=overall 审查全部需求覆盖、跨切片一致性、集成检查和未关闭问题。
+- 实施者必须派发一个独立 Reviewer subagent；如果当前已经是独立 Reviewer，直接审查，不递归创建审查 Agent。任务包记录角色 role.test-engineer、实际 runtime_id、从角色注册表复制的 core_skills / forbidden_skills、Reviewer 执行态、只读代码范围和唯一报告路径。需要不同专项能力时才扩展 Reviewer。
+- 从上游任务或当前变更确定范围、基线和候选。输入缺失先查找需求和变更，不默认向用户询问 fixed point。报告记录候选范围内文件摘要（包括新增与删除）和基线。普通切片不强制 candidate.bin、三轴任务包或两个 Reviewer。
+- Standards、Spec 和适用的 UI fidelity 都是必须考虑的维度，可由同一独立 Reviewer 逐项检查；机器已证明的格式规则不重复人工检查。真实视觉与交互证据不能由 type-check 替代。
+- findings 引用具体代码、验收条件或适用规则，区分 defect 与 suggestion。输出 result=pass 或 changes-required、scope、candidate_digest、reviewer、implementers、acceptance_ids、findings 和检查引用。未执行验证、非零退出码、未解决缺陷或证据过期都不能通过。
+- Reviewer 不修改实现。由实施者自动修复后复查相关问题和影响范围；无关变化不使全部报告失效，相关候选变化必须重审。范围内新影响回编译器自动更新，需求冲突或范围扩张才问用户。
+- 完成切片审查不替代整体审查。验收标准只能来自用户目标及既有规范，不允许为了通过而降低标准。
 
-### 1. Pin the fixed point and candidate
-
-Whatever the user said is the fixed point — a commit SHA, branch name, tag, `main`, `HEAD~5`, etc. If they didn't specify one, ask for it.
-
-Choose one candidate mode from the request or an upstream review contract:
-
-- **Committed candidate** — review committed branch/PR state. Capture `git diff <fixed-point>...HEAD` and `git log <fixed-point>..HEAD --oneline`.
-- **Worktree candidate** — review work in progress without requiring a commit. Resolve `<merge-base>` with `git merge-base <fixed-point> HEAD`, then capture:
-  - `git diff --no-ext-diff --binary --full-index <merge-base>` for committed, staged and unstaged tracked content as it exists in the working tree;
-  - `git ls-files -z --others --exclude-standard` for NUL-delimited raw untracked paths;
-  - each untracked file's content, using `git diff --no-index --no-ext-diff --binary --full-index -- /dev/null <path>` when a diff representation is useful. Exit code `1` from this command means a difference was found, not that review failed;
-  - `git log <fixed-point>..HEAD --oneline` for the committed portion of the candidate.
-
-Record one **candidate manifest** before spawning reviewers:
-
-```yaml
-review_mode: committed # or worktree
-review_base_ref: <fixed-point>
-merge_base: <resolved-sha>
-implementation_candidate_ref: HEAD # or working-tree
-candidate_snapshot_ref: <immutable-commit-or-captured-snapshot>
-candidate_digest: <sha256-or-immutable-tree-id>
-tracked_diff_command: <command>
-untracked_inventory_command: <command-or-null>
-untracked_files: []
-commit_list_command: <command>
-```
-
-For a Committed candidate, resolve `HEAD` to an immutable commit and tree before review. Its manifest must include `merge_base`, `tracked_diff_command` and `commit_list_command`. For a Worktree candidate, the manifest must additionally include `untracked_inventory_command`, `untracked_diff_command` and the exact `untracked_files` inventory.
-
-For a Worktree candidate, capture the tracked binary diff and every untracked file's bytes once into an immutable snapshot, compute `candidate_digest`, and make that **captured candidate** available to both reviewers. The following is normative, not illustrative: use the `yss-worktree-candidate-v1` byte stream. Start with ASCII `YSS-WORKTREE-CANDIDATE-V1` followed by one NUL byte. Append one tracked record: byte `0x54`, unsigned 64-bit big-endian binary-diff byte length, then the exact stdout bytes from `git diff --no-ext-diff --binary --full-index <merge-base>`. Then append one untracked record for each NUL-delimited raw path from `git ls-files -z --others --exclude-standard`, sorted bytewise by the raw path: byte `0x55`, unsigned 64-bit big-endian path length, raw path bytes, unsigned 32-bit big-endian `lstat` mode, entry-kind byte (`0x52` regular or `0x4c` symlink), unsigned 64-bit big-endian content length, then raw regular-file bytes or raw symlink-target bytes. Other entry kinds block capture. This is the sole length-prefixed framing and bytewise path order for the digest. SHA-256 is calculated over exactly this stream. The immutable snapshot stores `candidate-manifest.yaml`, `tracked.diff` and the `untracked/` bytes under the digest identity; both reviewers must consume those captured bytes and must not independently reread a live worktree.
-
-Before going further, confirm the fixed point and merge-base resolve. A committed candidate must have a non-empty committed diff. A Worktree candidate is non-empty when either its tracked diff or untracked inventory is non-empty. A bad ref, missing candidate part or empty candidate should fail here — not inside two parallel sub-agents. Do not silently downgrade Worktree review to `HEAD`-only review.
-
-### 2. Identify the spec source
-
-Look for the originating spec, in this order:
-
-1. A spec/Ticket/contract reference supplied by the user or an upstream lifecycle review input.
-2. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
-3. A spec file under `docs/`, `specs/`, or `docs/.scratch/` matching the branch name or feature.
-4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
-
-### 3. Identify the standards sources
-
-Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`.
-
-On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
-
-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
-
-Each smell reads *what it is* → *how to fix*; match it against the diff:
-
-- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
-- **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
-- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
-- **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
-- **Primitive Obsession** — a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
-- **Repeated Switches** — the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
-- **Shotgun Surgery** — one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
-- **Divergent Change** — one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
-- **Speculative Generality** — abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
-- **Message Chains** — long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
-- **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
-- **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
-
-### 4. Spawn both sub-agents in parallel
-
-**Standards sub-agent prompt** — include:
-
-- The full candidate manifest, captured candidate, `candidate_digest`, diff/inventory commands and commit list. For Worktree candidates, explicitly include every untracked file.
-- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
-- The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
-
-**Spec sub-agent prompt** — include:
-
-- The same candidate manifest, captured candidate, `candidate_digest`, diff/inventory commands and commit list.
-- The path or fetched contents of the spec.
-- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
-
-If the spec is missing, skip the Spec sub-agent and note this in the final report.
-
-### 5. Aggregate
-
-Present the reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. If UI is in scope, add `## UI fidelity` from the separate pass. Do **not** merge or rerank findings — the axes are deliberately separate (see _Why separate axes_).
-
-For Worktree mode, recapture the candidate digest after both reports return. If it differs from `candidate_digest`, mark both reports as reviewing a **stale candidate** and return `blocked`; the caller may start a new review against a new capture, but this invocation must not aggregate findings from different bytes. Recheck the same digest again at the completion/checkpoint boundary.
-
-State the reviewed `review_mode`, fixed point, candidate digest and coverage before the two reports. End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes — that's the reranking the separation exists to prevent.
-
-## Why separate axes
-
-A change can pass one axis and fail the other:
-
-- Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
-- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
-- Code that implements the spec but diverges from the confirmed prototype or design system → **Spec pass, UI fidelity fail.**
-
-Reporting them separately stops one axis from masking the other.
+模板维护遵守 harness-process-tailoring.md 的强度要求；L3 日常维护者自检，不自动冻结正式发布候选。历史 v1 正式候选只读兼容既有审查记录，发布动作仍消费用户授权。

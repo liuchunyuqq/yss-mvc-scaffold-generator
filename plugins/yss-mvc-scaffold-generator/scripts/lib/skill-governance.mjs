@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadSkillRegistry } from "./skill-registry.mjs";
+import { validateYssUiSkillManifest } from "./skill-supply-chain.mjs";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -27,16 +28,69 @@ export function validateSkillGovernance({ read = (relative) => readFileSync(path
     fail("页面模块 canonical 技能缺少条件化 toolbar-config 规则");
   }
 
+  const yssUiManifest = validateYssUiSkillManifest(JSON.parse(read(".agents/skills/.yss-skills-manifest.json")));
+  const lock = JSON.parse(read("skills-lock.json"));
+  for (const skill of yssUiManifest.skills) {
+    const skillPath = `.agents/skills/${skill.canonical}/SKILL.md`;
+    if (!exists(skillPath)) fail(`yss-ui 前端清单缺少 canonical skill: ${skill.canonical}`);
+    const item = lock.skills?.shared?.[skill.canonical];
+    if (!item || item.source !== yssUiManifest.source || item.sourceRevision !== yssUiManifest.source_revision) {
+      fail(`yss-ui skill 缺少一致的来源锁定: ${skill.canonical}`);
+    }
+    if (item.skillPath !== `${yssUiManifest.source_root}/${skill.upstream}/SKILL.md` || item.upstreamHash !== skill.upstream_hash) {
+      fail(`yss-ui skill 上游路径或 hash 不一致: ${skill.canonical}`);
+    }
+    const content = read(skillPath);
+    for (const match of content.matchAll(/\.\.\/([a-z0-9-]+)\/SKILL\.md/g)) {
+      if (!exists(`.agents/skills/${match[1]}/SKILL.md`)) fail(`${skill.canonical} 引用了不存在的本地 skill: ${match[1]}`);
+    }
+  }
+  const yssUiSkill = read(".agents/skills/yss-ui/SKILL.md");
+  if (!yssUiSkill.includes("`YFormily` 是新代码 canonical name")) fail("yss-ui 必须把 YFormily 声明为新代码 canonical name");
+  if (!yssUiSkill.includes("| 新建或改造完整业务页面 | `yss-ui-business-page-generation` |")) fail("yss-ui 缺少完整业务页面生成路由");
+  if (!yssUiSkill.includes("原型阶段不得调用本技能") || yssUiSkill.includes("prototype-component-facts")) fail("yss-ui 必须保持生产实现边界，不得暴露原型模式");
+  const expectedServer = { command: "npx", args: ["-y", "@yss-ui/mcp"] };
+  for (const config of yssUiManifest.mcp.project_configs) {
+    if (!exists(config.path)) fail(`缺少 yss-ui MCP 项目配置: ${config.path}`);
+    const document = JSON.parse(read(config.path));
+    if (JSON.stringify(document?.[config.container]?.[yssUiManifest.mcp.server_name]) !== JSON.stringify(expectedServer)) {
+      fail(`yss-ui MCP 配置不一致: ${config.path}`);
+    }
+  }
+  const mcpGuide = read(yssUiManifest.mcp.global_install_guide);
+  for (const marker of ["npx -y @yss-ui/mcp install codex", "不写用户主目录", "get_codegen_rules", "list_components"]) {
+    if (!mcpGuide.includes(marker)) fail(`YSS UI MCP 指南缺少边界或自检标记: ${marker}`);
+  }
+
   const registry = loadSkillRegistry();
   const canonicalIds = new Set(registry.skills.map((skill) => skill.id));
   const aliases = new Map(registry.skills.flatMap((skill) => skill.aliases.map((alias) => [alias, skill.id])));
-  const legacy = new Set(["api-integration", "page-module-development", "use-table-height", "use-tree-height", "yss-ui-business-page-generation"]);
+  const legacy = new Set(["api-integration", "page-module-development", "use-table-height", "use-tree-height"]);
   for (const alias of legacy) {
     if (exists(`.agents/skills/${alias}`)) fail(`legacy alias 不得存在独立 canonical 目录: ${alias}`);
     if (!aliases.has(alias)) fail(`legacy alias 未登记: ${alias}`);
   }
   if (exists(".agents/skills/high-fidelity-html-prototype") || aliases.has("high-fidelity-html-prototype")) {
     fail("high-fidelity-html-prototype 已退役，不得保留物理目录或运行时 alias");
+  }
+  const prototypeStage = read(".agents/skills/yss-prototype-stage/SKILL.md");
+  const prototypeAdapter = read(".agents/skills/yss-prototype-stage/references/product-design-adapter.md");
+  const prototypeEvidence = read("docs/design/templates/prototype-evidence-template.yaml");
+  const projectDesign = read("docs/design/design.md");
+  const antdvCompatibility = read(".agents/skills/yss-ui/references/antdv-compatibility.md");
+  for (const marker of ["product-design-adapter.md", "schema v3", "H1", "H2", "原型阶段不得调用 `yss-ui`"]) {
+    if (!prototypeStage.includes(marker)) fail(`原型阶段合同缺少 YSS adapter 标记: ${marker}`);
+  }
+  for (const marker of ["prepare-static", "prepare-flow", "fact pack", "ConfigProvider", "1440x900", "390x844"]) {
+    if (!prototypeAdapter.includes(marker)) fail(`Product Design adapter 缺少执行约束: ${marker}`);
+  }
+  for (const marker of ["schema_version: 3", "prototype_profile", "visual_review", "flow_review", "implementation_handoff", "project_token_baseline_digest", "verification/design-qa.md"]) {
+    if (!prototypeEvidence.includes(marker)) fail(`原型证据模板缺少 schema v3 字段: ${marker}`);
+  }
+  if (prototypeEvidence.includes("与官方 #1677ff / Inter / 8px")) fail("原型证据模板仍把 Inter/8px 误写为官方 v6 默认差异");
+  if (projectDesign.includes("`antdv6-design.md`")) fail("design.md 仍引用不存在的 antdv6-design.md");
+  for (const marker of ["Ant Design v6", "Ant Design Vue 4.x", "版本号不同本身不是冲突", "visual_semantic_mapping"]) {
+    if (!antdvCompatibility.includes(marker)) fail(`AntDV 兼容策略缺少双轨边界: ${marker}`);
   }
   for (const skill of registry.skills) {
     if (!canonicalIds.has(skill.id)) fail(`注册表 canonical skill 无效: ${skill.id}`);
@@ -46,5 +100,5 @@ export function validateSkillGovernance({ read = (relative) => readFileSync(path
       }
     }
   }
-  return { checked: true, legacy_aliases: legacy.size };
+  return { checked: true, legacy_aliases: legacy.size, yss_ui_skills: yssUiManifest.skills.length };
 }

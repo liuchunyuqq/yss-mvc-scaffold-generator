@@ -1,55 +1,33 @@
 ---
 name: yss-product-lifecycle
-description: 编排 YSS 产品或模块从机会调研到 Spec、原型、技术契约、垂直切片实现、审查、发布和复盘；当阶段、产物、门禁或 YSS skill 不清晰时使用。
+description: 围绕用户目标自主分析、拆分、实现、按切片与整体独立审查；仅需求歧义、冲突、授权范围或必要外部信息需要用户输入。
 ---
 
 # YSS Product Lifecycle
 
-这是生命周期主控 skill：负责识别阶段、判定影响面、检查产物与门禁、选择下一工作单元并验收结果。业务实现必须交给对应的 Matt/YSS 专项 skill；本 skill 不替代它们。
+先读 yss-project.yaml、CONTEXT.md、用户目标和已有资产。template-source 使用模板维护流程，不生成具体产品资产。project-instance 默认消费 docs/process/acceptance-policy.yaml 与 docs/process/acceptance-driven-development.md；阶段和技能身份仍由 lifecycle-registry.yaml 和 yss-skill-registry.yaml 提供。
 
-## 入口与边界
+## 连续执行合同
 
-1. 先读取 `yss-project.yaml`、`CONTEXT.md`、相关 ADR、父 Ticket/checkpoint 和当前资产。
-2. `repository_mode=template-source` 只走模板维护流程；命中产品流程时返回 `blocked: template-source-product-artifact-forbidden`，不得生成产品 Spec、原型、OpenAPI 或切片 Ticket。
-3. `repository_mode=project-instance` 以 `docs/process/lifecycle-registry.yaml`、`harness-process-tailoring.md` 和本目录 references 为唯一阶段、门禁和裁剪事实源。
-4. 模式：`route` 只读规划；`orchestrate` 有界推进；`resume` 重建后推进；`audit` 严格只读。未明确时使用 `route`。
+新任务按 `docs/process/implementation-standards-context.md` 在实现前生成共享规范上下文，按工作单元加载；checkpoint 带 `standards_context_version: 1` 和每切片规范/合同引用。恢复、工作单元切换和新增影响时先校验再读取原文。切片与整体 Review 绑定同一有效规范集合，不新增批准阶段。
 
-Matt 的 `grill-with-docs`、`to-spec`、`to-tickets`、`implement` 等保留为显式兼容入口；默认路径是本 skill 持有的原生工作单元，由本编排器创建正式资产、维护状态并在四类人工门禁暂停。兼容入口不得自动调用它们或代替其创建正式资产；Matt 只导航，不得写生命周期资产或改变门禁/Ticket 状态；任何写入前回交本编排器。
+1. 实现、修改、修复请求默认 orchestrate；方案和分析使用 route；审查使用 audit；恢复任务使用 resume。不把一次工作单元完成当成停止整个需求的理由。
+2. 复用工程质量基线，给本需求明确验收 ID。按需维护 Spec、接口、数据约束和切片 Ticket；简单修复可只有一个切片，不生成空产物。分析资产不是人工批准点。
+3. 使用 yss-implementation-contract-compiler 计算技能闭包、路径、依赖和相关验证。合同 validated 且当前、可读、无阻塞后直接实现；ready-for-agent 由事实计算，不先设置 ready-for-human。
+4. 每个切片实现和相关验证后，使用 code-review 由独立实例审查。缺陷自动修复并针对性复查；通过后继续下一切片。Review 不写实现。
+5. 全部切片完成后再次执行 overall Review 和集成验收，核对全部验收 ID、跨切片一致性、实际退出码、有效证据和开放问题。完成结论由 scripts/verify-lifecycle-checkpoint 的 schema v2 路径校验，不使用旧 approval-record。
+6. 只有业务歧义、需求冲突、范围扩张或必要外部信息缺失才提问；提供具体问题和建议。等待时继续无依赖工作。工程决策、命名、修复、重编译和范围内计划更新自主执行。
+7. stale 先刷新受影响输入；violation 自动修复；new_impacts / drift 在目标内更新计划和合同，超出目标才澄清。调用 scripts/acceptance-action.mjs 可确定下一动作。旧输入不能继续使用，机器失败不能被忽略。
+8. 切片完成、阻塞、交接和交付时集中 checkpoint。验证按输入、命令和环境复用；局部修改不重复全量打包。部署和对外动作消费既有授权，不把开发完成强制接到发布批准。
 
-## 不可裁剪的主链
+## 状态与兼容
 
-机会调研/需求分析 → Spec/功能架构 → 产品设计与原型 → 技术分析（系统、数据、API、工程基线）→ Ticket 正式化 → 垂直切片实现（前后端 TDD）→ 独立 code review 与 fresh verification → 发布/复盘。
+新需求先从实际资料整理包含稳定 AC ID 的 Spec，再执行 `node scripts/init-acceptance-checkpoint.mjs --goal "用户目标" --baseline docs/.scratch/<feature>/spec.md --output docs/.scratch/<feature>/checkpoint.yaml`。此入口计算真实摘要并生成 v2 字段，不自行拼装另一套结构；初始化通过不等于切片合同已准入。
 
-裁剪只允许将未命中的条件门禁标记为 `not-applicable` 并写原因；不得删除主阶段、已命中的门禁或必需产物。阶段是否完成取决于“内容 + 审查结论 + 上游新鲜度 + 可读证据”，文件存在不算通过。
+`verify-lifecycle-checkpoint` 报字段、状态或摘要错误时，按 `docs/process/development-gate.md` 的恢复步骤修复后重验并继续。不得把自身记录错误作为需要用户处理的业务阻塞；也不得删除既有 slices、blockers、审查或验证记录来获得通过。
 
-用户的实现授权不是生命周期批准。“按推荐基线实现”等宽泛表述不得同时批准 Spec、OpenAPI Freeze、Architecture Review 和 Slice Implementation Contract。每个命中人工门禁必须有独立、带 `gate_id`、产物版本、明确范围、批准人、证据和时间的批准记录；证据不得跨门禁复用。任一批准是推断的、资产是后补的或因果链不完整时，返回 `violation` 并回退到最近可信阶段。
+仅在读取 v1 Matt 兼容记录时，按 references/matt-yss-adapter.md 解释原调用边界：直接 ask-matt 不得写生命周期资产或改变门禁/Ticket 状态，任何写入前回交本编排器；user-invoked 技能不得自动调用它们或代替其创建正式资产，历史结果归一化为 Workflow Execution Result。旧记录中的自然语言意向不构成上述结构化 Git 授权。以上仅解释历史合同，新任务继续遵循本页 v2 连续执行合同及用户已有授权。
 
-## 阶段路由与技能
+新记录使用 docs/process/templates/acceptance-checkpoint-template.yaml。scripts/lib/lifecycle-transition.mjs 的 v2 实现入口与 scripts/lib/acceptance-policy.mjs 是执行校验 seam。v1 状态、旧门禁与原会签规则只读兼容，详见 references/state-model.md 和 references/orchestration-contract.yaml。迁移从真实资产重建 v2，保留 legacy_ref，不把历史 approved 翻译成新验收通过。
 
-| 阶段 | 必需产物/门禁 | 工作单元与技能 | 通过条件 |
-|---|---|---|---|
-| 入口分诊 | 身份、影响面、最近可信阶段 | `yss-product-lifecycle` | `yss-project.yaml` 合法且影响面可解释 |
-| 机会调研/需求分析 | Discovery、用户/MVP/非目标/成功标准、测试 seam | `work-unit.discovery-opportunity` + `work-unit.discovery-requirements`；市场/竞品事实用 `competitive-intelligence`，技术/标准事实用 `research`；`grill-with-docs` 为兼容入口 | 未决事实已 research 或 handoff，用户确认，无 runnable blocker |
-| Spec/功能架构 | Spec、产品总体设计、功能架构；必要时 Spec Delta | 原生 `work-unit.spec-synthesis`；`to-spec` 为兼容入口 | 初稿先为 `ready-for-human`；只有 Spec baseline 人工批准后资产才为 `approved` 并进入下游 |
-| 原型设计 | 交互说明、低保真、状态矩阵、高保真 HTML、评审记录 | `yss-design-system` → `yss-prototype-stage` → `yss-antd-design`（仅原型事实）→ Codex `product-design:index`（非 Codex 交付等价合同）。前端落地改用 `yss-ui` | `gate.prototype-reviewed`、`gate.prototype-verified`、`gate.user-confirmation` 均有证据 |
-| 技术分析 | OpenAPI Draft/Freeze、数据架构、工程基线、架构审查 | `yss-openapi-governance` / `yss-openapi-draft-review`、`codebase-design`、`implementation-repo-onboarding`、`yss-router` | API/架构契约冻结；无 API 影响有明确记录；脚手架策略满足 |
-| Ticket 正式化 | 功能父 Ticket、垂直切片、Slice Implementation Contract | 原生 `work-unit.ticket-decomposition`；`to-tickets` 为兼容入口；生命周期复算 | 依赖、验收、测试 seam 可执行；合同已批准、持久化且为当前版本 |
-| 技术实现 | 前端/后端代码、TDD 证据、YSS Skill Execution Result | 原生 `work-unit.slice-implementation`；`implement` 为兼容入口；前端按 `yss-ui` + `yss-page-module-development`，后端按 `yss-router` 最小闭包；数据分析数据库 CRUD 强制加入 `data-analysis-java-implementation`、`yss-repository`、`yss-mybatis`，并按标准预设加载审计、ID、Excel、Cache、Userinfo，业务行为统一 `tdd` | 只写允许路径；数据分析代码兼容 Java 8，标准 CRUD 使用 MyBatis-Plus，复杂 SQL 使用 Mapper XML并有静态检查和持久层测试；API/Controller 变更追加 Java Web/Javadoc、fmt 和 Smart-doc 证据；UI 影响必须有还原计划 |
-| Review/验证 | 不可变候选快照、review 结论、fresh verification | `code-review`（独立于实现者）；UI 影响追加 `yss-ui` + `yss-design-system` 的 UI fidelity 轴 | findings 已处理；同一候选快照通过全部审查轴与验证 |
-| 发布/复盘 | 发布/回滚证据、复盘记录 | 生命周期自有工作单元 | fresh verification、独立审查和人工发布裁决齐全 |
-
-## 前端实现还原硬检查
-
-原型通过不等于前端实现通过。`ready-for-agent` 前先产生 `frontend_implementation_plan`（原型/Spec、路由与页面清单、桌面/窄屏验收用例、加载/空态/错误/权限/关键交互状态、拟执行的 `pnpm` 命令）；实现完成、发布前再产生 `frontend_implementation_verification`，补齐截图或视觉回归、console warning、命令退出码、未覆盖差异与责任人。差异未解释、截图缺失、只做 type-check 或只声称“已对齐”均为 `blocked`；发现新 API、状态或视觉行为时返回 `new_impacts`/`drift` 并重新路由。优先使用 `yss-ui/references/verification.md` 的分层验证和既有 `pnpm` scripts。
-
-## 结果与暂停
-
-每个工作单元必须返回 `Workflow Execution Result`（workflow reference、skill、changed files、evidence refs、actual verification、deferred seams、drift/new impacts）。缺少可读证据、`stale`、`violation`、`drift`、`new_impacts` 或阻塞信号时不得标记 completed。实现授权不包含 Git commit/push 授权；“做完提交”等自然语言意向不构成上述结构化 Git 授权。
-
-数据分析 API/Controller 影响的完成判定是条件强制门禁：Java Web/Javadoc 检查、`fmt:check`、Smart-doc openapi goal 均有本轮退出码，`server/target/openapi` 存在并与冻结 API 核对，且 Slice Contract 声明的所有 evidence 文件真实存在。任一项缺失时返回 `violation`，保持在 `work-unit.slice-implementation`，不得标记 `implemented-and-verified` 或进入 Review/发布。
-
-输出固定包含：模式、当前阶段、影响面、资产/门禁状态、证据、阻塞项、本轮动作、下一工作单元、暂停/继续理由、Ticket 同步和 Git checkpoint 判断。暂停时只提出一个具体人工决策，并给出推荐答案与恢复动作。
-
-Local Markdown 功能包的状态同步是完成条件：`Status:` 仅使用 Matt 五态表达 Ticket 协作角色，`Delivery-State:` 使用 `planned / in-progress / implemented / verified / released` 表达交付进度。每次 checkpoint 在同一工作单元内同步 `map.md`、`parent-ticket.md`、受影响的 `issues/*.md` 和 `gates/lifecycle-checkpoint.yaml`；出现批准、阶段或交付进度冲突时返回 `drift`。实现候选存在后必须实例化 `docs/templates/review-report-template.md`；实际发布时实例化 Release Note；命中复盘触发时实例化 Retro。ADR 只在存在难回滚、非显而易见且有真实取舍的架构决策时生成；其他情况记录 `not-applicable` 原因，不生成空文档。
-
-详细执行循环、readiness、脚手架（包括 `controlled-generation`）、审查快照、状态传播和 Matt 边界见 [orchestration.md](references/orchestration.md)、[orchestration-contract.yaml](references/orchestration-contract.yaml)、[artifact-dependencies.md](references/artifact-dependencies.md) 和 [state-model.md](references/state-model.md)。
+前端影响仍消费 yss-ui 和实际界面、状态、交互验证；MVC 仅消费其 Profile 内后端技能。真实业务兼容性、允许路径、技能完整性和相关检查不因自主执行而省略。

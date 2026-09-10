@@ -42,34 +42,20 @@ Local 主 tracker 的完整功能包结构如下：
 docs/.scratch/<feature>/
 ├── map.md
 ├── discovery/
-│   ├── repository-identity.yaml
-│   └── impact-assessment.yaml
 ├── spec.md
 ├── spec-delta/
 ├── parent-ticket.md
 ├── design/
 ├── api/
 ├── architecture/
-│   └── decisions/          # 仅在存在真实架构取舍时生成 ADR
 ├── gates/
-│   ├── approvals/           # 每个命中人工门禁一份独立批准记录
-│   └── backend-slice-implementation-contract.yaml
 ├── verification/
-│   └── work-units/          # 每个工作单元的 Workflow Execution Result
-├── reviews/              # 实现候选存在后生成独立审查记录
-├── releases/             # 实际进入发布时生成
-├── retrospective.md      # 命中复盘触发条件时生成
 └── issues/01-<slug>.md
 ```
 
 - `parent-ticket.md` 汇总 Spec、设计、契约、门禁、阻塞边和阶段证据。
 - `issues/01-<slug>.md` 等文件是垂直切片或 Wayfinder 子 Ticket；不得把多个 Ticket 合并成一个文件。
 - 每个 Ticket 在顶部附近使用 `Status:` 记录 Matt 五态之一：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。
-- `Status:` 只表示 Ticket 的当前协作角色，不表示实现进度。父 Ticket 和垂直切片另用 `Delivery-State:` 记录 `planned`、`in-progress`、`implemented`、`verified`、`released`。
-- 每次阶段 checkpoint 必须在同一工作单元内同步 `map.md`、`parent-ticket.md`、相关 `issues/*.md` 和 `gates/lifecycle-checkpoint.yaml`。批准、阶段或 `Delivery-State` 冲突时必须返回 `drift` 并先修复状态。
-- ADR、Release 和 Retro 是条件产物：未命中时在 checkpoint 记录 `not-applicable` 及原因，不生成空文档。存在实现候选时的独立 Code Review 与 fresh verification 不可省略。
-- 用户授权实现不等于批准上游资产。每个命中人工门禁在 `gates/approvals/` 保存单独记录，必须绑定产物版本和批准范围；同一条宽泛消息不得跨门禁复用。
-- 进入实现前，入口身份与影响面证据、Discovery、Spec/功能架构、必要的 API/数据/工程审查、Ticket、Slice Contract 及 Backend 子合同必须可读、当前且因果链完整。
 - 评论和对话追加在 `## Comments` 下；状态变化必须保留原因、证据引用和下一步。
 - Wayfinder 的临时子问题可以沿用 Matt 的 `Status: claimed/resolved` 工作状态；它不是交付 Ticket 的五态角色，进入正式切片前必须转换为上述五态之一。
 - Local 主 tracker 不要求远程 Ticket 存在；`ready-for-agent` 仍必须满足生命周期门禁、阻塞边关闭、实现上下文和 Slice Implementation Contract 要求。

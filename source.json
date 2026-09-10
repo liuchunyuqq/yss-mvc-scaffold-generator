@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
-  "repositoryRoot": "C:\\project_self\\localskill\\yss-spec-project-template",
+  "repositoryRoot": "../yss-spec-project-template",
   "skillPath": ".agents/skills/yss-mvc-scaffold-generator",
   "pluginSkillPath": "plugins/yss-mvc-scaffold-generator/.agents/skills/yss-mvc-scaffold-generator",
-  "runtimeSkillPath": "plugins/yss-mvc-scaffold-generator/skills/yss-mvc-scaffold-generator"
+  "runtimeSkillPath": "plugins/yss-mvc-scaffold-generator/skills/yss-mvc-scaffold-generator",
+  "exportScript": ".agents/skills/yss-mvc-scaffold-generator/scripts/export_plugin.mjs"
 }

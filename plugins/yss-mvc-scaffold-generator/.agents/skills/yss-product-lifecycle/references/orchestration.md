@@ -1,12 +1,16 @@
 # 编排执行协议
 
+## 默认项目执行策略
+
+新建与恢复的 project-instance 任务使用 `docs/process/acceptance-policy.yaml` 与 `docs/process/acceptance-driven-development.md`：目标授权内连续执行，切片独立 Review、整体 Review 和相关验证闭环；仅需求歧义、冲突、范围扩张或必要外部信息缺失时提问。下文逐资产批准、ready-for-human、全候选打包和固定会签规则仅适用于 schema v1 历史记录；新任务使用 schema v2，validated 表示技术校验通过，不写或伪造 approval-record。模板源维护规则保持适用。
+
 ## 有界推进循环
 
 1. 识别模式、仓库身份、任务规模和影响面。
 2. `setup readiness`：每个任务只执行一次，核对 tracker、五态标签和领域文档布局，并在本轮缓存结果；仅在 tracker、主远端、真实标签或配置变化时重查。
 3. 加载父 Ticket/checkpoint 与真实资产，计算最近可信阶段。
-4. 评估资产、门禁和 `stale`，选择第一个未阻塞工作单元。
-5. 执行最小生命周期工作单元：只实际调用允许的 model-invoked skill；原生工作单元可直接持有正式资产，Matt 兼容 user-invoked skill 仅作为 workflow reference，仍由用户显式启动。将结果归一化为 `Workflow Execution Result`，验收输出并回写状态与证据。
+4. 评估资产、门禁和 `stale`，选择第一个未阻塞工作单元。进入 `work-unit.slice-implementation` 前，必须先通过 `scripts/lib/lifecycle-transition.mjs` 的 Ticket 正式化、垂直切片绑定和合法 `next_route` 校验；父 Ticket、缺少垂直切片或 `ready-for-human` 的切片一律 `blocked`。
+5. 执行最小生命周期工作单元：主控先按 `docs/process/schemas/digital-human-task-package.schema.json` 编译并校验任务包，再只实际调用允许的 model-invoked skill；原生工作单元可直接持有正式资产，Matt 兼容 user-invoked skill 仅作为 workflow reference，仍由用户显式启动。将结果归一化为 `Workflow Execution Result`，验收输出并回写状态与证据。任务包的 `contract.kind` 按工作单元选择；只有实现子任务使用 `slice-implementation` 并消费 Slice Implementation Contract，其他阶段不伪造该合同。
 6. 若仍在授权和自动推进边界内，回到第 3 步；否则暂停。
 
 不要仅输出下一个提示词后结束 `orchestrate`/`resume`。不要因进入业务代码阶段而退出主控；应把实现交给专项 skill，并在返回后继续核验。
@@ -27,9 +31,9 @@ Matt phase boundary 是工作阶段之间的上下文决策，不是新的生命
 
 ## 原型到后端脚手架的接力
 
-`prototype_confirmation` 通过后，先判断实现仓库登记中的 backend `scaffold_status`。当状态为 `required` 时，先完成工程基线，由 `yss-router` 编译脚手架 `controlled-generation` 工作单元合同，生命周期编排器批准并持久化后才能运行生成器；顺序为：工程基线 → Router 脚手架合同 draft → 生命周期批准/持久化 → 脚手架生成 → `yss-backend-scaffold-parent` 基线校验 → Router 合同重编译。`existing` / `initialized` 不重复全量生成，但不能跳过基线校验和 Router 重编译。
+`prototype_confirmation` 通过后，先判断实现仓库登记中的 backend `scaffold_status`。当状态为 `required` 时，先完成工程基线，由 `yss-implementation-contract-compiler` 编译脚手架 `controlled-generation` 工作单元合同，生命周期编排器批准并持久化后才能运行生成器；顺序为：工程基线 → 实现合同编译器 脚手架合同 draft → 生命周期批准/持久化 → 脚手架生成 → `yss-backend-scaffold-parent` 基线校验 → 实现合同编译器 合同重编译。`existing` / `initialized` 不重复全量生成，但不能跳过基线校验和 实现合同编译器 重编译。
 
-脚手架工作单元必须使用结构化合同 JSON 文件，至少记录 `contract_id`、`contract_version`、`slice_id`、Router draft 引用、生命周期批准引用、持久化引用、当前版本、允许写路径、预期证据文件和验证命令；批准记录至少含 `approval_ref`、`approver`、`persisted_ref`、`current_version`。生成器必须读取该合同文件并校验状态、版本、skill、工作模式和固定命令，不能只接受任意字符串参数。它还必须记录生成器输入、预期文件、目标目录、实际 `./mvnw validate` / `./mvnw test` / `./mvnw package` 结果和 YSS Skill Execution Result。三条命令必须由受控工作单元真实执行，逐条留存 `exit_code`、`duration_ms`、stdout/stderr 引用和执行时间；生成器打印的下一步命令不构成证据。生命周期生成关闭 `--with-example`；非空目标目录使用 `--force` 默认阻断，除非覆盖范围、备份、回滚点和批准引用已进入合同。脚手架不得把业务规则、状态机、权限、事务、复杂查询、错误映射或用户可见行为放进生成物；`validate` 通过、输出目录存在或生成器成功都不是生命周期批准、架构放行或 `ready-for-agent`。
+脚手架工作单元必须使用结构化合同 JSON 文件，至少记录 `contract_id`、`contract_version`、`slice_id`、实现合同编译器 draft 引用、生命周期批准引用、持久化引用、当前版本、允许写路径、预期证据文件和验证命令；批准记录至少含 `approval_ref`、`approver`、`persisted_ref`、`current_version`。生成器必须读取该合同文件并校验状态、版本、skill、工作模式和固定命令，不能只接受任意字符串参数。它还必须记录生成器输入、预期文件、目标目录、实际 `./mvnw validate` / `./mvnw test` / `./mvnw package` 结果和 YSS Skill Execution Result。三条命令必须由受控工作单元真实执行，逐条留存 `exit_code`、`duration_ms`、stdout/stderr 引用和执行时间；生成器打印的下一步命令不构成证据。生命周期生成关闭 `--with-example`；非空目标目录使用 `--force` 默认阻断，除非覆盖范围、备份、回滚点和批准引用已进入合同。脚手架不得把业务规则、状态机、权限、事务、复杂查询、错误映射或用户可见行为放进生成物；`validate` 通过、输出目录存在或生成器成功都不是生命周期批准、架构放行或 `ready-for-agent`。
 
 脚手架完成后，所有后续生成的后端代码仍必须重新消费当前版本的批准 Slice Implementation Contract、YSS skill 依赖闭包、允许写路径、预期证据和 Execution Result。业务行为使用 `behavior-tdd`；只有机械结构、样板、配置和冻结客户端使用 `controlled-generation`。缺少合同、skill、证据或实际验证时立即阻断；生成范围从机械内容变成业务行为时触发完整重路由。
 
@@ -51,19 +55,23 @@ tracker 选择和冲突按 `docs/agents/issue-tracker.md` 裁决：已持久化 
 
 ## Matt flow 进入条件
 
-- `work-unit.discovery-requirements` 实际调用 `grilling` 和 `domain-modeling`；`work-unit.discovery-opportunity` 按事实类型路由 `competitive-intelligence` 或 `research`。生命周期原生工作单元默认负责 Spec、Ticket 和实现资产；`to-spec`、`to-tickets`、`implement` 仅保留为显式兼容入口，结果必须回交生命周期验收。
-- 原生 `work-unit.ticket-decomposition` 只能在 OpenAPI Freeze 或无 API 影响记录后创建垂直切片，初始角色统一为 `ready-for-human`；生命周期复算完整公式后才能提升 `ready-for-agent`。
+- `work-unit.technical-analysis` 命中聚合、状态机、不变量、一致性、Domain Event、Gateway 或持久化映射影响时，先调度 `yss-tactical-design` 完成 Tactical DDD Check；默认嵌入系统概要设计 / 数据架构，复杂场景才生成 `artifact.tactical-design`。无领域影响记录 `not-applicable`。该 skill 只返回设计合同和验证结果，批准仍由生命周期编排器维护，发现 `stale`、`drift` 或 `new_impacts` 时不得继续 Ticket 正式化。
+
+- `work-unit.discovery-requirements` 实际调用 `grilling` 和 `domain-modeling`；`work-unit.discovery-opportunity` 按事实类型路由 `competitive-intelligence` 或 `yss-research`。`yss-research:quick` 只用于探索；外部证据进入领域战略、阶段决策或其他生命周期批准输入前必须升级为 `evidence-audited`。生命周期原生工作单元默认负责 Spec、Ticket 和实现资产；`to-spec`、`to-tickets`、`implement` 仅保留为显式兼容入口，结果必须回交生命周期验收。
+- 原生 `work-unit.ticket-decomposition` 只能在 OpenAPI Freeze 或无 API 影响记录后创建垂直切片，初始 Ticket 状态统一为 `ready-for-human`；生命周期复算完整公式后才能提升 `ready-for-agent`。该工作单元必须返回 `ticket_decomposition_result_ref` 和垂直切片引用，并作为实现的必经前置证据。
 - 原生 `work-unit.slice-implementation` 必须在生命周期批准并持久化 Slice Implementation Contract 和 Build Architecture Checklist 后执行；用户显式 `implement` 仍走兼容入口，不得绕过生命周期。
-- `implement` 遇到 backend `scaffold_status=required` 时，还必须满足原型确认后的脚手架策略：脚手架 Execution Result、`yss-backend-scaffold-parent` 基线、Wrapper 验证和 Router 合同重编译均已回写；否则停在工程基线，不得写业务代码。
+- `Workflow Execution Result.next_route` 必须通过生命周期转换校验；Spec、原型和技术分析不得直接跳转到 `work-unit.slice-implementation`，只能先进入 `work-unit.ticket-decomposition`。
+- `implement` 遇到 backend `scaffold_status=required` 时，还必须满足原型确认后的脚手架策略：脚手架 Execution Result、`yss-backend-scaffold-parent` 基线、Wrapper 验证和 实现合同编译器 合同重编译均已回写；否则停在工程基线，不得写业务代码。
 - `Workflow Execution Result` 出现 `drift`、`new_impacts`、`stale_candidates`、`violation`、`missing_evidence`、空 `evidence_refs` 或缺少必需字段时暂停当前工作单元；旧结果只能先经只读兼容 adapter 归一化。
 
 ## 审查与验证
 
-- 一旦实现候选存在，立即从 `docs/templates/review-report-template.md` 实例化 Review Report；尚未取得独立 Reviewer 结论时使用 `draft` 或 `blocked`，不得因审查未开始而省略该记录。候选存在但报告缺失时返回 `violation`。
 - 调用 `code-review` 前先固定 review input：`review_mode`、`review_base_ref`、`implementation_candidate_ref`、`candidate_snapshot_ref`、`candidate_digest`、Spec/Ticket、Slice Implementation Contract、Build Architecture Checklist 和 YSS Skill Execution Result 引用。`committed` 模式审查不可变 `HEAD`；`worktree` 模式一次捕获 committed、staged、unstaged 和 untracked 内容。必须按 `orchestration-contract.yaml.review_input` 的 manifest 按模式必填字段及 `yss-worktree-candidate-v1` 字节流（raw path、uint64 big-endian 长度、tracked/untracked record）计算 SHA-256，两个 Reviewer 必须消费同一不可变快照。返回后或完成 checkpoint 摘要变化时返回 `blocked`，由编排器决定重新审查。候选为空、漏项或 fixed point 不可解析时阻断。
 - 小改动和中等变更可由同一独立执行者完成 `code-review` 与 fresh verification，并在同一报告中分别记录 findings、命令、结果和残余风险。
 - 该执行者必须独立于实现者；新模块、高风险变更、职责冲突或需双人控制时，Reviewer 与 Verifier 分开。
-- `code-review` 是唯一默认代码审查 skill。GitLab、CI、Sonar、Alibaba Java 等治理事实作为仓库规则或专项检查输入，不再叠加第二个通用审查 skill。
+- `code-review` 是唯一默认代码审查 skill。GitLab、CI、Sonar、Alibaba Java 与 YSS 前端 / 后端 skill 作为仓库规则或专项检查输入接入 Standards 轴，由 `review_standards_route` 按影响面编译；不再叠加第二个通用审查 skill。漏掉合同 `required_skills`、适用报告行空白、mandatory `violation` 未关闭或可机器检查规则既无工具结果也无原文引用时，不得 `completed`。
+- 产品切片与模板维护共用同一 finding 闭环，强度分别绑定 Slice 合同与 L1 / L2 / L3。`violation`、机器检查失败、适用行空白由实现者在原合同路径修复，再重新捕获候选并全轴复审。`drift`、`new_impacts`、`required_skills` 与真实影响不一致时合同 `stale`，回 实现合同编译器 或更早阶段，禁止在旧合同上继续编码。审查者不得写实现。`not-applicable` 仅当影响面未命中；命中后 mandatory 不得豁免，只允许修复或完整 `seam-deferred`。禁止为日常 Alibaba / YSS 新增生物人豁免门禁。
+- 独立 Reviewer 必须与实现者不同实例，并在能执行已登记 `pnpm` / `./mvnw` 的运行时中审查。模板源 `.cursor/environment.json` 只服务模板校验，不替代实现仓审查运行时。不为此再创建第二个 Cloud 审查环境或 `/code-review` skill。
 - UI 影响切片将 `UI fidelity` 作为 `code-review` 的条件第三轴；任何修复都会使候选摘要失效，必须重新捕获候选并重跑 Standards、Spec、UI fidelity 和 fresh verification。
 
 ## Git 授权
@@ -74,14 +82,19 @@ tracker 选择和冲突按 `docs/agents/issue-tracker.md` 裁决：已持久化 
 
 ## 必须暂停
 
-- Spec baseline、需求冻结、原型确认、OpenAPI Freeze 或 Architecture Review 等普通门禁等待人工裁决。
-- “按推荐基线实现”、“继续开发”等宽泛授权只授权在已批准边界内实现，不能充当 Spec baseline、OpenAPI Draft Review / Freeze、Architecture Review 或 Slice Contract 批准。每个命中门禁单独保存 `gate_id`、产物引用与版本、批准范围、批准人、证据和时间；一条证据不得跨门禁复用。
+- Spec baseline、需求冻结、原型确认、OpenAPI Freeze 或 Architecture Review 等普通门禁等待会签裁决（数字人或生物人，以 `docs/agents/digital-human-roles.yaml` 的 `gate_policy` 为准）。暂停输出必须包含：门禁 ID、指定 `role_id`、`runtime_id`、会签文件路径。恢复前执行 `scripts/verify-approval-record`；角色错误、起草者自签或生物人门禁被数字人关闭时返回 `blocked`，不得标 `approved`。
 - 需要目标仓库、外部凭据、发布窗口或其他新授权。
 - 状态与证据冲突且无法可靠重建。
 - 专项 skill 失败或返回不可验收结果。
 - 即将作出可合并、可发布或完成结论。
 
-暂停输出：门禁、证据、责任人、推荐答案、一个问题、恢复动作。
+暂停输出：门禁、指定会签 `role_id`、`runtime_id`、会签文件路径、证据、推荐答案、一个问题、恢复动作。
+
+## Context Plan 与质量基线
+
+实现合同先消费 `common.context_plan`：必需上下文只包含 `CONTEXT.md`、已批准 Spec、当前合同和适用 ADR / 工程基线；专项 references、实现仓库文件和历史证据按影响面按需加载。达到最小充分证据后停止扩展，缺失权威上下文只能 `blocked` 或 `reroute`。
+
+质量标准由 `engineering-baseline` 以 `baseline_id` / `baseline_version` 定义一次，Slice Contract、YSS Skill Execution Result、`code-review` 和发布检查只引用它，并将约束结果写入 `constraint_results`。命中 API / 数据迁移、跨仓契约、发布回滚、实际安全行为或生命周期 / 生成语义时，必须在现有决策或审查记录中完成 Doubt-Driven 主张、反证、证据、残余风险和 Reviewer 引用；普通低风险变更不触发该流程。
 
 ## Wayfinder 完成判定
 
@@ -96,11 +109,11 @@ Decision ticket 产生决策，不是实现切片，不得标记 `ready-for-agen
 
 ## `grill-with-docs` 退出判定
 
-进入 `to-spec` 前必须区分已确认项与未决项，并确认用户、问题、MVP、非目标、成功标准、术语/ADR 候选和测试 seam。事实问题走 `research`；需 runnable 反馈的问题走 `handoff → prototype → handoff`。存在未回流 blocker 时不得进入 Spec baseline。
+进入 `to-spec` 前必须区分已确认项与未决项，并确认用户、问题、MVP、非目标、成功标准、术语/ADR 候选和测试 seam。事实问题走 `yss-research`；需 runnable 反馈的问题走 `handoff → prototype → handoff`。存在未回流 blocker 时不得进入 Spec baseline。
 
 Prototype 回流必须有可核验证据：来源 handoff、prototype 资产或运行记录、结论、被更新的 Spec/设计/ADR/Ticket 引用、剩余未决项和返回 handoff。仅在对话中声称“已验证”不算回流完成。
 
-Matt `prototype` 的回流还必须注明 `prototype_branch`，并保留单文件 HTML 主来源；YSS 高保真 HTML 原型另走阶段 4 的评审、AntD CLI 校验和用户确认，不得用 throwaway prototype 替代。
+Matt `prototype` 的回流还必须注明 `prototype_branch`，并保留单文件 HTML 主来源；该结果只能作为 YSS 原型输入，仍须完成阶段 4 的低保真评审、H1/H2 档位路由、schema v3 验证和用户确认，不得用 throwaway prototype 替代。
 
 `to-questionnaire` 未收到答案时使用 `external-input-required` 暂停，记录问卷、接收人、所需输出和恢复路由；收到答案后记录 response、重新分类影响面和更新后的权威资产，再回到 `grill-with-docs` 或 `to-spec`。
 

@@ -1,0 +1,27 @@
+schema_version: 1
+policy_id: acceptance-driven-v1
+applies_to: project-instance
+state_schema_version: 2
+default_action_mode: orchestrate
+read_only_intents: [analysis, plan, audit]
+quality_baseline: engineering-baseline
+requirement_acceptance: spec
+human_input_reasons: [business-ambiguity, requirement-conflict, scope-expansion, external-input-required]
+autonomous_actions: [engineering-decision, repair, refresh-inputs, recompile-contract, update-plan]
+review:
+  scopes: [slice, overall]
+  independent: true
+  default_reviewers: 1
+  repair: targeted-recheck
+  snapshot: scoped-content-digest
+verification:
+  environment: first-use-or-environment-change
+  slice: affected-checks
+  overall: integrated-acceptance
+  reuse: unchanged-inputs-and-command-and-environment
+checkpoint_on: [slice-completed, input-required, blocked, handoff, delivery]
+external_actions: consume-existing-authorization
+legacy:
+  checkpoint_schema_version: 1
+  approval_records: read-only
+  new_records: forbidden

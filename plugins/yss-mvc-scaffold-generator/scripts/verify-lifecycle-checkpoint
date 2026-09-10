@@ -4,23 +4,12 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "./vendor/yaml.mjs";
-import { validateJsonSchema } from "./lib/json-schema-lite.mjs";
+import { assertCheckpointApprovals } from "./lib/approval-record.mjs";
+import { validateJsonSchema } from "./lib/json-schema.mjs";
+import { validateAcceptanceCheckpoint } from "./lib/acceptance-policy.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaPath = path.join(root, "docs/process/schemas/lifecycle-checkpoint.schema.json");
-const validator = String.raw`
-import json
-import sys
-from jsonschema import Draft202012Validator
-schema = json.load(open(sys.argv[1], encoding="utf-8"))
-value = json.load(sys.stdin)
-errors = sorted(Draft202012Validator(schema).iter_errors(value), key=lambda error: list(error.absolute_path))
-for error in errors:
-    location = ".".join(str(part) for part in error.absolute_path) or "<root>"
-    print(f"{location}: {error.message}", file=sys.stderr)
-sys.exit(1 if errors else 0)
-`;
-
 try {
   const { positionals } = parseArgs({ allowPositionals: true, strict: true });
   if (positionals.length !== 1) throw new TypeError("用法: scripts/verify-lifecycle-checkpoint <checkpoint.yaml|checkpoint.json>");
@@ -28,9 +17,19 @@ try {
   const document = parseDocument(readFileSync(sourcePath, "utf8"), { maxAliasCount: 0, uniqueKeys: true });
   if (document.errors.length) throw new TypeError(document.errors[0].message);
   const value = document.toJS({ maxAliasCount: 0 });
-  validateJsonSchema(value, JSON.parse(readFileSync(schemaPath, "utf8")));
+  const effectiveSchema = value?.schema_version === 2 ? path.join(root, "docs/process/schemas/lifecycle-checkpoint-v2.schema.json") : schemaPath;
+  validateJsonSchema(value, effectiveSchema, { label: "生命周期 checkpoint JSON Schema" });
+  if (value.schema_version === 2) {
+    const errors = validateAcceptanceCheckpoint(value, { resolve: (ref) => {
+      const doc = parseDocument(readFileSync(path.resolve(root, ref), "utf8"), { uniqueKeys: true });
+      if (doc.errors.length) throw new Error(doc.errors[0].message);
+      return doc.toJS();
+    }});
+    if (errors.length) throw new Error(errors.join("\n"));
+  } else assertCheckpointApprovals(value, sourcePath);
   process.stdout.write("生命周期 checkpoint 验证通过\n");
 } catch (error) {
   process.stderr.write(`生命周期 checkpoint 验证失败: ${error.message}\n`);
+  process.stderr.write('恢复指引：字段/状态错误按 docs/process/templates/acceptance-checkpoint-template.yaml 修复原记录并重验，保留已有切片与证据；新记录使用 scripts/init-acceptance-checkpoint.mjs。过期输入先分析差异并刷新。仅格式错误不构成用户阻塞，详见 docs/process/development-gate.md。\n');
   process.exitCode = 1;
 }

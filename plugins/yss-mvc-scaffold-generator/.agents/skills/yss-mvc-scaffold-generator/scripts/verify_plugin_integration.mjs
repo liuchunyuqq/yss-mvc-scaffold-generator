@@ -1,0 +1,63 @@
+import {mkdtemp,cp,mkdir,readFile,writeFile,rm,readdir} from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
+const base=await mkdtemp(path.join(os.tmpdir(),'mvc-isolated-plugin-'));
+if(!process.argv[2])throw new Error('Usage: verify_plugin_integration.mjs <plugin-root>');
+const source=path.resolve(process.argv[2]);
+const plugin=path.join(base,'plugins/yss-mvc-scaffold-generator');
+function run(exe,args,ok=true){const r=spawnSync(exe,args,{encoding:'utf8',env:{...process.env,GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'user.name',GIT_CONFIG_VALUE_0:'MVC Fixture',GIT_CONFIG_KEY_1:'user.email',GIT_CONFIG_VALUE_1:'mvc-fixture@example.invalid'}});if(ok)assert.equal(r.status,0,r.stderr||r.error?.message);return r;}
+try {
+ run('git',['-C',base,'init','--initial-branch=main']);
+ await writeFile(path.join(base,'.export-fixture'),'isolated export fixture');run('git',['-C',base,'add','.export-fixture']);run('git',['-C',base,'commit','-m','isolated export fixture']);
+ await cp(source,plugin,{recursive:true});
+ const scripts=path.join(plugin,'skills/yss-mvc-scaffold-generator/scripts');
+ const localFile=path.join(plugin,'.agents/skills/local-only.iml');await writeFile(localFile,'local IDE metadata');
+ run(process.execPath,[path.join(scripts,'export_plugin.mjs'),'--target',plugin]);
+ assert.equal(await readFile(localFile,'utf8'),'local IDE metadata');
+ const origin=path.join(base,'work1/project');await mkdir(path.dirname(origin),{recursive:true});
+ run(process.execPath,[path.join(scripts,'generate_project.mjs'),'--project-name','mvc-isolated','--base-package','com.yss.fixture','--target-dir',origin,'--with-mock']);
+ run(process.execPath,[path.join(scripts,'verify_project.mjs'),'--project-root',origin]);
+ // 新建工程进入真实需求入口：基线 -> checkpoint -> 实际校验器。
+ await mkdir(path.join(origin,'docs/.scratch/checkpoint-probe'),{recursive:true});
+ await writeFile(path.join(origin,'docs/.scratch/checkpoint-probe/spec.md'),'# 验收\n- AC-01：查询可见模板\n- AC-02：拒绝无权限请求\n');
+ run(process.execPath,[path.join(origin,'scripts/init-acceptance-checkpoint.mjs'),'--project-root',origin,'--goal','查询模板','--baseline','docs/.scratch/checkpoint-probe/spec.md','--output','docs/.scratch/checkpoint-probe/checkpoint.yaml']);
+ run(process.execPath,[path.join(origin,'scripts/verify-lifecycle-checkpoint'),path.join(origin,'docs/.scratch/checkpoint-probe/checkpoint.yaml')]);
+ const standardsRequest={baseline_ref:'docs/engineering/data-analysis-java-conventions.md',work_units:[{id:'http',required_skills:['yss-web-controller','yss-dto','yss-validation'],impacts:['backend_impact','web-adapter-impact','request-validation','mapper-registration-impact']}]};
+ await writeFile(path.join(origin,'standards-request.json'),JSON.stringify(standardsRequest));
+ const compileStandards=project=>run(process.execPath,[path.join(project,'scripts/applicable-standards.mjs'),'--input',path.join(project,'standards-request.json'),'--output',path.join(project,'standards-context.json'),'--work-unit','http']);
+ const compiled=JSON.parse(compileStandards(origin).stdout);
+ assert(compiled.required_context_refs.includes('skills:yss-backend-runtime-verification/SKILL.md'));
+ assert(!compiled.required_context_refs.some(ref=>/yss-domain|yss-ui/.test(ref)));
+ run(process.execPath,[path.join(origin,'scripts/applicable-standards.mjs'),'--input',path.join(origin,'standards-context.json'),'--check','--work-unit','http']);
+ run(process.execPath,[path.join(origin,'scripts/verify-mvc-governance-profile.mjs'),origin]);
+ const preview=run(process.execPath,[path.join(scripts,'migrate_governance.mjs'),'--project-root',origin,'--dry-run']);
+ assert.deepEqual(JSON.parse(preview.stdout).changes,[]);
+ const agentRules=await readFile(path.join(origin,'AGENTS.md'),'utf8');assert.match(agentRules,/acceptance-policy/);assert.doesNotMatch(agentRules,/不可裁剪的主链/);
+ run('git',['-C',origin,'add','.']);
+ run('git',['-C',origin,'commit','-m','test fixture']);
+ const clone=path.join(base,'work2/project');await mkdir(path.dirname(clone),{recursive:true});run('git',['clone',origin,clone]);
+ assert.equal(run('git',['-C',clone,'status','--porcelain']).stdout,'');
+ const restored=run(process.execPath,[path.join(scripts,'restore_environment.mjs'),'--project-root',clone]);
+ assert.equal(JSON.parse(restored.stdout).status,'FILES_READY');
+ run(process.execPath,[path.join(scripts,'restore_environment.mjs'),'--project-root',clone,'--check']);
+ assert.equal(run('git',['-C',clone,'status','--porcelain']).stdout,'');
+ const originalState=JSON.parse(await readFile(path.join(base,'work1/skillUtils/mvc-environment-state.json'),'utf8'));
+ const restoredState=JSON.parse(await readFile(path.join(base,'work2/skillUtils/mvc-environment-state.json'),'utf8'));
+ assert.equal(restoredState.digest,originalState.digest);
+ // Git checkout may normalize project line endings; recompile then compare routing, not raw file hashes.
+ const restoredPlan=JSON.parse(compileStandards(clone).stdout);
+ assert.deepEqual({...restoredPlan,standards_digest:null},{...compiled,standards_digest:null});
+ run(process.execPath,[path.join(clone,'scripts/applicable-standards.mjs'),'--input',path.join(clone,'standards-context.json'),'--check','--work-unit','http']);
+ const baselineFile=path.join(clone,'docs/engineering/data-analysis-java-conventions.md');
+ const baselineBody=await readFile(baselineFile,'utf8');await writeFile(baselineFile,baselineBody+'\nchanged rule\n');
+ const stale=run(process.execPath,[path.join(clone,'scripts/applicable-standards.mjs'),'--input',path.join(clone,'standards-context.json'),'--check'],false);
+ assert.notEqual(stale.status,0);assert.match(stale.stderr,/changed/);
+ await writeFile(baselineFile,baselineBody);
+ const names=await readdir(path.join(base,'work2/skillUtils/.agents/skills'));assert.equal(names.length,38);
+ const entry=path.join(plugin,'skills/yss-mvc-scaffold-generator/SKILL.md');await writeFile(entry,(await readFile(entry,'utf8'))+'\nfixture drift\n');
+ const drift=run(process.execPath,[path.join(plugin,'.agents/skills/yss-mvc-scaffold-generator/scripts/export_plugin.mjs'),'--target',plugin,'--check'],false);
+ assert.notEqual(drift.status,0);assert.match(drift.stderr,/SYNC_DRIFT/);
+ console.log(JSON.stringify({isolated_plugin:'pass',real_git_clone_restore:'pass',project_git_clean:'pass',environment_digest_equal:'pass',mvc_skills:names.length,sync_negative:'pass',agent_discovery:'not-verified'}));
+}finally{await rm(base,{recursive:true,force:true});}

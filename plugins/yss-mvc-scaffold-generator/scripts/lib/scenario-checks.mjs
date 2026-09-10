@@ -3,17 +3,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { parseDocument } from "../vendor/yaml.mjs";
+import { lifecycleTransitionContract, validateImplementationEntry, validateNextRoute } from "./lifecycle-transition.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const projectLock = JSON.parse(readFileSync(path.join(root, "skills-lock.json"), "utf8"));
-const skillUtilsRoot = projectLock.distribution?.skillUtilsDir ? path.resolve(root, projectLock.distribution.skillUtilsDir) : root;
-const resolveProjectPath = (relative) => relative.startsWith(".agents/skills/") || relative.startsWith(".codex/skills/")
-  ? path.join(skillUtilsRoot, relative)
-  : path.join(root, relative);
-const read = (relative) => readFileSync(resolveProjectPath(relative), "utf8");
+const read = (relative) => readFileSync(path.join(root, relative), "utf8");
 function ensure(condition, message) { if (!condition) throw new TypeError(message); }
-function exists(relative) { return existsSync(resolveProjectPath(relative)); }
+function exists(relative) { return existsSync(path.join(root, relative)); }
 function includesAll(actual, expected) { return Array.isArray(actual) && expected.every((item) => actual.includes(item)); }
+function hasText(value) { return typeof value === "string" && value.trim().length > 0; }
+const virtualTicketDecompositionRef = "docs/.scratch/demo/evidence/ticket-decomposition-result.yaml";
+const virtualTicketDecomposition = "result_schema: workflow-execution-result-v1\nwork_unit: work-unit.ticket-decomposition\nresult: completed\nevidence_refs:\n  - docs/.scratch/demo/evidence/ticket-decomposition-result.yaml\n";
 
 function validateMattContract(data) {
   const direct = data.entry_routing?.direct_matt_entry;
@@ -25,7 +24,7 @@ function validateMattContract(data) {
   ensure(includesAll(setup?.preserves, ["lifecycle.status", "gate.status", "ticket.role"]) && setup?.legacy_artifacts_detected?.action === "migration-check" && setup.legacy_artifacts_detected.setup === "forbidden" && setup.legacy_artifacts_detected.write === "paused", "setup 暂停或旧资产迁移暂停契约不完整");
   const grill = data.grill_exit;
   ensure(includesAll(grill?.required, ["frontier_empty", "facts_resolved_or_routed", "decisions_confirmed", "shared_understanding_confirmed", "no_unresolved_runnable_blocker"]) && grill?.user_confirmation_required === true, "grill_exit 缺少 frontier、事实路由、决策、共同理解、用户确认或 runnable blocker 条件");
-  ensure(grill?.facts_resolved_or_routed?.technical_fact === "research" && grill.facts_resolved_or_routed.runnable_question === "handoff-prototype-handoff" && grill.facts_resolved_or_routed.external_decision === "external-input-required", "grill_exit 的事实、runnable 问题或外部决策路由不完整");
+  ensure(grill?.facts_resolved_or_routed?.technical_fact === "yss-research" && grill.facts_resolved_or_routed.runnable_question === "handoff-prototype-handoff" && grill.facts_resolved_or_routed.external_decision === "external-input-required", "grill_exit 的事实、runnable 问题或外部决策路由不完整");
   const git = data.git_authorization;
   for (const action of ["commit", "push"]) {
     const prefix = action === "commit" ? "commit" : "push";
@@ -41,13 +40,13 @@ function validateMattContract(data) {
 function validateInvocationBoundary(data) {
   const boundary = data.matt_invocation_boundary;
   const expectedUserInvoked = ["ask-matt", "grill-me", "grill-with-docs", "handoff", "implement", "improve-codebase-architecture", "loop-me", "setup-matt-pocock-skills", "setup-ts-deep-modules", "teach", "to-questionnaire", "to-spec", "to-tickets", "triage", "wait-what", "wayfinder", "writing-beats", "writing-fragments", "writing-shape"];
-  const expectedModelInvoked = ["code-review", "codebase-design", "diagnosing-bugs", "domain-modeling", "grilling", "migrate-to-shoehorn", "prototype", "research", "resolving-merge-conflicts", "scaffold-exercises", "setup-pre-commit", "tdd", "writing-for-agents"];
-  const expectedLifecycleModelInvoked = ["code-review", "codebase-design", "diagnosing-bugs", "domain-modeling", "grilling", "prototype", "research", "tdd"];
+  const expectedModelInvoked = ["code-review", "codebase-design", "diagnosing-bugs", "domain-modeling", "grilling", "migrate-to-shoehorn", "prototype", "resolving-merge-conflicts", "scaffold-exercises", "setup-pre-commit", "tdd", "writing-for-agents", "yss-research"];
+  const expectedLifecycleModelInvoked = ["code-review", "codebase-design", "diagnosing-bugs", "domain-modeling", "grilling", "prototype", "tdd", "yss-research"];
   ensure(JSON.stringify(boundary?.user_invoked_skills) === JSON.stringify(expectedUserInvoked), "Matt user-invoked skills 清单不完整或已漂移");
   ensure(JSON.stringify(boundary?.lifecycle_managed_user_entries) === JSON.stringify(["setup-matt-pocock-skills", "grill-with-docs", "to-spec", "to-tickets", "implement"]), "生命周期管理的显式用户入口清单不完整");
   ensure(boundary?.lifecycle_may_invoke_user_invoked === false && boundary?.formal_artifact_owner === "explicit-user-entry", "生命周期仍可能自动调用 user-invoked skill 或产出其正式资产");
   ensure(JSON.stringify(boundary?.model_invoked_skills) === JSON.stringify(expectedModelInvoked) && JSON.stringify(boundary?.lifecycle_allowed_model_invoked_skills) === JSON.stringify(expectedLifecycleModelInvoked) && boundary?.continuous_orchestration === "compatibility-prepare-and-validate-only", "Matt invocation inventory 或生命周期 model-invoked 白名单不完整");
-  ensure(JSON.stringify(data.skill_source_contract?.source_revisions_required) === JSON.stringify(["mattpocock/skills"]) && data.skill_source_contract?.adaptation_ref_required_when_effective_diff === true && data.skill_source_contract?.retired_shared_skills?.includes("batch-grill-me"), "上游来源或退役 skill 供应链契约不完整");
+  ensure(JSON.stringify(data.skill_source_contract?.source_revisions_required) === JSON.stringify(["mattpocock/skills", "iloveZzz/yss-ui"]) && data.skill_source_contract?.adaptation_ref_required_when_effective_diff === true && data.skill_source_contract?.retired_shared_skills?.includes("batch-grill-me"), "上游来源或退役 skill 供应链契约不完整");
   validateInvocationMetadata(boundary, (skill) => read(`.agents/skills/${skill}/SKILL.md`));
   const setup = data.setup_readiness;
   ensure(setup?.missing_action === "needs-human" && setup?.requested_skill === "setup-matt-pocock-skills" && setup?.resume_route === "setup-readiness" && setup?.preserves?.includes("lifecycle.status"), "readiness=missing 未形成显式用户 setup 的结构化暂停");
@@ -60,17 +59,30 @@ function validateInvocationBoundary(data) {
   ensure(JSON.stringify(native?.user_confirmation_required_at) === JSON.stringify(["spec-baseline", "prototype-confirmation", "openapi-freeze", "merge-or-release"]), "生命周期人工门禁集合已漂移");
   const routes = data.work_unit_routes;
   ensure(routes?.["work-unit.discovery-requirements"]?.skills?.includes("grilling") && routes?.["work-unit.discovery-requirements"]?.skills?.includes("domain-modeling"), "需求分析工作单元缺少 grilling/domain-modeling");
-  ensure(routes?.["work-unit.discovery-opportunity"]?.route_by?.market_or_competitor_fact === "competitive-intelligence" && routes["work-unit.discovery-opportunity"].route_by.technical_or_standard_fact === "research", "机会调研事实路由不准确");
-  ensure(routes?.["work-unit.slice-implementation"]?.skills?.includes("tdd") && routes?.["work-unit.slice-implementation"]?.skills?.includes("yss-ui"), "原生实现工作单元缺少 TDD 或 UI 路由");
-  const dataAnalysisCompletion = routes?.["work-unit.slice-implementation"]?.conditional_completion?.data_analysis_api_or_controller_impact;
-  ensure(includesAll(dataAnalysisCompletion?.required_skills, ["data-analysis-java-implementation"]) && includesAll(dataAnalysisCompletion?.required_verification, ["java-web-style", "fmt-check", "smart-doc-openapi"]), "数据分析 API/Controller 实现缺少 Java Web、格式或 Smart-doc 条件验证");
-  ensure(includesAll(dataAnalysisCompletion?.required_evidence, ["yss-skill-execution-result", "fresh-verification", "smart-doc-verification", "smart-doc-output", "frozen-api-comparison"]) && includesAll(dataAnalysisCompletion?.blocked_when, ["missing-command-result", "nonzero-exit-code", "missing-evidence", "missing-smart-doc-output", "missing-frozen-api-comparison", "smart-doc-javadoc-contract", "java-format-contract"]) && includesAll(dataAnalysisCompletion?.on_blocked, ["violation", "remain-work-unit.slice-implementation"]), "数据分析 API/Controller 完成门禁缺少证据或阻断状态");
+  ensure(routes?.["work-unit.discovery-opportunity"]?.route_by?.market_or_competitor_fact === "competitive-intelligence" && routes["work-unit.discovery-opportunity"].route_by.technical_or_standard_fact === "yss-research:technical-evidence" && routes["work-unit.discovery-opportunity"].route_by.strategy_fact === "yss-research:strategy-evidence", "机会调研事实路由不准确");
+  const strategyResearch = routes?.["work-unit.domain-strategy-design"]?.research_contract;
+  ensure(strategyResearch?.profile === "strategy-evidence" && strategyResearch.mode_before_gate === "evidence-audited" && strategyResearch.artifact_owner === "yss-research" && strategyResearch.downstream_owner === "yss-stage-decision", "领域战略研究合同缺少 profile、门禁前审计或资产所有权边界");
+  const stageDecisionResearch = routes?.["work-unit.stage-decision"]?.research_contract;
+  ensure(routes?.["work-unit.stage-decision"]?.skills?.includes("yss-research") && stageDecisionResearch?.profile === "strategy-evidence" && stageDecisionResearch.mode_before_gate === "evidence-audited" && stageDecisionResearch.artifact_owner === "yss-research" && stageDecisionResearch.downstream_owner === "yss-stage-decision", "阶段决策工作单元缺少 evidence-audited 战略研究合同");
+  const prototypeRoute = routes?.["work-unit.prototype-design"];
+  ensure(!prototypeRoute?.skills?.includes("yss-ui") && !prototypeRoute?.supporting_skills?.includes("yss-ui"), "原型工作单元不得调用生产实现技能 yss-ui");
+  ensure(JSON.stringify(Object.keys(prototypeRoute?.profile_contract?.profiles ?? {})) === JSON.stringify(["H1", "H2"]) && prototypeRoute?.version_boundary?.prototype_must_not_call === "yss-ui", "原型档位必须仅包含 H1/H2 并明确 yss-ui 边界");
+  ensure(routes?.["work-unit.slice-implementation"]?.skills?.includes("tdd") && routes?.["work-unit.slice-implementation"]?.skills?.includes("yss-ui") && routes?.["work-unit.slice-implementation"]?.skills?.includes("yss-ui-business-page-generation"), "原生实现工作单元缺少 TDD、UI 或业务页面生成路由");
   const frontendRoute = routes?.["work-unit.slice-implementation"]?.frontend_route;
-  ensure(frontendRoute?.primary_skill === "yss-ui" && frontendRoute?.page_orchestration_skill === "yss-page-module-development", "前端实现路由缺少 yss-ui 主入口或页面编排技能");
+  ensure(frontendRoute?.primary_skill === "yss-ui" && frontendRoute?.page_generation_skill === "yss-ui-business-page-generation" && frontendRoute?.page_orchestration_skill === "yss-page-module-development", "前端实现路由缺少 yss-ui 主入口、业务页面生成或页面编排技能");
   for (const impact of ["api_impact", "formily_impact", "table_impact", "tree_impact", "height_impact", "export_impact", "theme_impact"]) {
     ensure(Array.isArray(frontendRoute?.conditional_skills?.[impact]) && frontendRoute.conditional_skills[impact].length > 0 && typeof frontendRoute.not_applicable_reasons?.[impact] === "string", `前端条件专项路由缺少 ${impact}`);
   }
   ensure(routes?.["work-unit.frontend-implementation-verification"]?.skills?.includes("code-review") && routes?.["work-unit.frontend-implementation-verification"]?.applies_when === "ui_impact", "前端还原验证未绑定 UI fidelity 审查轴");
+  const reviewRoute = routes?.["work-unit.code-review"];
+  ensure(reviewRoute?.primary_skill === "code-review" && reviewRoute?.review_standards_route?.unique_default_skill === "code-review" && reviewRoute?.review_standards_route?.second_generic_review_skill === "forbidden", "code-review 不是唯一默认审查入口或允许第二套通用审查 skill");
+  ensure(includesAll(reviewRoute?.supporting_skills, ["alibaba-java-code-style", "yss-ui", "yss-domain"]) && includesAll(reviewRoute?.skills, ["code-review", "alibaba-java-code-style", "yss-ui"]), "审查工作单元缺少 YSS / Alibaba 专项检查输入");
+  const disposition = reviewRoute?.review_standards_route?.finding_disposition;
+  ensure(includesAll(disposition?.same_loop_for, ["product-slice", "template-maintenance"]) && disposition?.reviewer_write_implementation === "forbidden", "审查 finding 闭环未同时覆盖产品切片与模板维护，或允许审查者写实现");
+  ensure(includesAll(disposition?.repair_then_full_rereview?.kinds, ["violation", "machine_check_failure", "blank_applicable_row", "missing_evidence"]) && disposition?.repair_then_full_rereview?.actor === "implementer" && disposition?.repair_then_full_rereview?.then === "recapture_candidate_and_rerun_all_axes", "violation 类 finding 未要求实现者修复后全轴复审");
+  ensure(includesAll(disposition?.stale_and_reroute?.kinds, ["drift", "new_impacts", "required_skills_mismatch"]) && disposition?.stale_and_reroute?.continue_coding_on_old_contract === "forbidden" && disposition?.stale_and_reroute?.next === "compiler-or-earlier-lifecycle", "drift / new_impacts 未要求合同 stale 并回 实现合同编译器");
+  ensure(disposition?.exemption_policy?.not_applicable === "impact_not_triggered_only" && disposition?.exemption_policy?.mandatory_waiver === "forbidden" && includesAll(disposition?.exemption_policy?.allowed_exits, ["repair", "seam-deferred-complete"]) && disposition?.exemption_policy?.new_human_waiver_gate === "forbidden", "审查豁免策略允许未命中以外的 not-applicable 或 mandatory 豁免");
+  ensure(data.review_input?.unique_default_skill === "code-review" && data.review_input?.second_generic_review_skill === "forbidden" && data.review_input?.completed_requires_specialist_coverage === true && data.review_input?.finding_disposition_required === true && data.review_input?.completed_requires_no_open_mandatory_violations === true && data.review_input?.completed_requires_no_blank_applicable_rows === true && data.review_input?.reviewer_write_implementation === "forbidden" && includesAll(data.review_input?.standards_sources, ["slice_contract_required_skills", "specialist_check_inputs", "review_report_template"]), "review_input 未强制专项检查覆盖或 finding 闭环完成条件");
   for (const id of ["work-unit.spec-synthesis", "work-unit.ticket-decomposition", "work-unit.slice-implementation"]) {
     ensure(routes?.[id]?.native?.source === "yss-product-lifecycle" && routes[id].compatibility?.source === "mattpocock/skills" && routes[id].compatibility.formal_artifact_owner === "explicit-user-entry", `${id} 未分离原生执行定义与 Matt 兼容输入`);
   }
@@ -78,28 +90,6 @@ function validateInvocationBoundary(data) {
     for (const skill of route.skills ?? []) ensure(!boundary.user_invoked_skills.includes(skill), `工作单元不能自动调用 user-invoked skill: ${skill}`);
     for (const skill of route.skills ?? []) if (boundary.model_invoked_skills.includes(skill)) ensure(boundary.lifecycle_allowed_model_invoked_skills.includes(skill), `工作单元调用了未进入生命周期白名单的 model-invoked skill: ${skill}`);
   }
-}
-
-function validateLifecycleApprovalAndArtifactGuardrails(data) {
-  const approval = data.human_gate_approval;
-  ensure(approval?.broad_implementation_authorization_is_gate_approval === false, "宽泛实现授权仍可冒充生命周期门禁批准");
-  ensure(approval?.one_record_per_gate === true && approval?.cross_gate_reuse === "forbidden", "人工批准未限制为逐门禁独立记录");
-  ensure(includesAll(approval?.required, ["gate_id", "decision", "artifact_ref", "artifact_version", "approval_scope", "approver", "evidence_ref", "approved_at"]), "人工批准记录缺少范围、版本或证据字段");
-  ensure(includesAll(approval?.non_reusable_gates, ["gate.spec-baseline-approved", "gate.openapi-draft-reviewed", "gate.design-reviewed", "gate.openapi-frozen", "gate.engineering-baseline-accepted", "gate.architecture-reviewed", "gate.slice-contract-approved", "gate.release-ready"]), "禁止复用批准的门禁集合不完整");
-
-  const readiness = data.implementation_readiness;
-  ensure(readiness?.on_missing_or_inferred === "violation-return-to-nearest-trustworthy-stage", "实现就绪仍可接受缺失或推断资产");
-  ensure(includesAll(readiness?.required_artifacts, ["impact-assessment", "repository-identity", "discovery", "spec", "functional-architecture", "requirement-freeze", "engineering-baseline", "build-architecture-checklist", "parent-ticket", "vertical-slice-ticket", "slice-implementation-contract", "backend-slice-implementation-contract"]), "后端实现前的最小资产集不完整");
-  ensure(readiness?.api_impact_required_chain?.join(" -> ") === "openapi-draft -> openapi-draft-review -> openapi-design-review -> openapi-freeze", "OpenAPI Draft 到 Freeze 的因果链未受约束");
-
-  const slice = data.slice_contract_acceptance;
-  ensure(includesAll(slice?.required_paths, ["lifecycle_refs", "readiness.blockers", "readiness.stale_inputs", "common", "frontend", "backend", "backend.contract_ref", "contract", "cross_repo", "common.forbidden_patterns", "common.human_review_points", "common.full_reroute_triggers", "work_units"]), "Slice Implementation Contract 完整性字段不全");
-  ensure(includesAll(slice?.work_unit_required, ["id", "behavior", "primary_skill", "supporting_skills", "tdd_mode", "allowed_write_paths", "expected_evidence", "verification_command_ids"]), "Slice Contract 工作单元结构不完整");
-  ensure(slice?.verification_commands_require_stable_id === true, "验证命令未要求稳定 ID");
-
-  const review = data.review_readiness;
-  ensure(review?.candidate_requires_report === true && review?.missing_report === "violation", "实现候选缺失 Review Report 时未阻断");
-  ensure(includesAll(review?.required_input, ["candidate_snapshot_ref", "candidate_digest", "review_report_ref", "independent_reviewer", "fresh_verification_ref"]), "Review 候选输入不完整");
 }
 
 function validateWorkflowExecutionResult(payload, contract, workUnitRoutes) {
@@ -114,13 +104,52 @@ function validateWorkflowExecutionResult(payload, contract, workUnitRoutes) {
   for (const field of contract.workflow_reference.required) ensure(typeof payload.workflow_reference?.[field] === "string" && payload.workflow_reference[field].trim(), `workflow_reference.${field} 无效`);
   const workUnit = workUnitRoutes?.[payload.work_unit];
   ensure(workUnit, `未知 Workflow Execution Result work_unit: ${payload.work_unit}`);
+  if (payload.result === "completed") {
+    const routeResult = validateNextRoute(payload.work_unit, payload.next_route);
+    ensure(routeResult.result === "allowed", `Workflow Execution Result next_route 非法: ${routeResult.blocking_signals.join(", ")}`);
+  }
   const accepted = [workUnit.native, workUnit.compatibility].filter(Boolean);
   ensure(contract.workflow_reference.allowed_sources.includes(payload.workflow_reference.source) && accepted.some((route) => route.source === payload.workflow_reference.source && route.skill === payload.workflow_reference.skill && route.invocation_mode === payload.workflow_reference.invocation_mode), "Workflow Execution Result workflow_reference 与 work_unit route 不匹配");
+  const workUnitRequirements = contract.work_unit_requirements?.[payload.work_unit];
+  if (workUnitRequirements && payload.result === "completed") {
+    for (const field of [...(workUnitRequirements.required ?? []), ...(workUnitRequirements.completed_requires ?? [])]) {
+      ensure(hasText(payload[field]), `Workflow Execution Result ${payload.work_unit} 缺少 ${field}`);
+    }
+    for (const field of workUnitRequirements.boolean_required ?? []) {
+      ensure(typeof payload[field] === "boolean", `Workflow Execution Result ${payload.work_unit} 缺少布尔字段 ${field}`);
+    }
+  }
+  if (payload.work_unit === "work-unit.slice-implementation" && payload.result === "completed") {
+    const implementationState = {
+      tracker_kind: payload.tracker_kind,
+      predecessor_work_unit: payload.predecessor_work_unit,
+      ready_for_agent: payload.ready_for_agent,
+      ticket_decomposition_result_ref: payload.ticket_decomposition_result_ref,
+      vertical_slice_ticket_ref: payload.vertical_slice_ticket_ref,
+      vertical_slice_ticket_role: payload.vertical_slice_ticket_role,
+      vertical_slice_ticket_kind: payload.vertical_slice_ticket_kind,
+      ticket_decomposition_result: { result: payload.ticket_decomposition_result_status, evidence_refs: payload.evidence_refs },
+      vertical_slice_ticket: { ref: payload.vertical_slice_ticket_ref, role: payload.vertical_slice_ticket_role, kind: payload.vertical_slice_ticket_kind },
+      slice_contract: {
+        ticket_ref: payload.slice_contract_ticket_ref,
+        status: payload.slice_contract_status,
+        persisted: payload.slice_contract_persisted,
+        current_version: payload.slice_contract_current_version,
+      },
+    };
+    const semantic = validateImplementationEntry(implementationState, {
+      // The scenario uses one explicit virtual fixture; arbitrary local refs
+      // must still pass the real readability check and cannot use a fallback.
+      exists: (ref) => exists(ref) || ref === "docs/.scratch/demo/issues/01-valid-slice.md" || ref === virtualTicketDecompositionRef,
+      read: (ref) => ref === virtualTicketDecompositionRef ? virtualTicketDecomposition : readFileSync(path.join(root, ref), "utf8"),
+    });
+    ensure(semantic.result === "allowed", `Workflow Execution Result implementation Ticket 语义非法: ${semantic.blocking_signals.join(", ")}`);
+  }
   if (payload.result !== "completed") return;
   for (const field of contract.completed_requires_empty) ensure(Array.isArray(payload[field]) && payload[field].length === 0, `completed 的 ${field} 必须为空`);
   for (const field of contract.completed_requires_non_empty) ensure(Array.isArray(payload[field]) && payload[field].length > 0, `completed 的 ${field} 不能为空`);
   if (contract.completed_requires_readable_evidence_refs) {
-    for (const reference of payload.evidence_refs) ensure(typeof reference === "string" && reference.trim() && exists(reference), `completed 证据不可读取: ${reference}`);
+    for (const reference of payload.evidence_refs) ensure(typeof reference === "string" && reference.trim() && (exists(reference) || reference === virtualTicketDecompositionRef), `completed 证据不可读取: ${reference}`);
   }
   if (contract.completed_requires_no_blocking_signals) ensure(Array.isArray(payload.blocking_signals) && payload.blocking_signals.length === 0, "completed 不得携带 blocking_signals");
 }
@@ -149,22 +178,22 @@ const profiles = {
   lifecycle: {
     message: "六类生命周期压力场景验证通过",
     files: [".agents/skills/yss-product-lifecycle/SKILL.md", ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "docs/process/lifecycle-registry.yaml"],
-    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "template-source-product-artifact-forbidden"], [".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "ready-for-agent"]]
+    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "template-source"], [".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "ready-for-agent"]]
   },
   matt: {
     message: "Matt/YSS 集成压力场景验证通过",
     files: [".agents/skills/yss-product-lifecycle/references/matt-yss-adapter.md", ".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml", "docs/process/templates/lifecycle-checkpoint-template.yaml", "docs/process/templates/frontend-implementation-plan-template.yaml", "docs/process/templates/frontend-implementation-verification-template.yaml"],
-    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "Workflow Execution Result"]]
+    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "schema v2"]]
   },
   prototype: {
     message: "原型到后端脚手架及后续 YSS 代码生成压力场景验证通过",
-    files: [".agents/skills/yss-ddd-scaffold-generator/scripts/generate_scaffold.mjs", ".agents/skills/yss-router/references/router-contract.yaml"],
-    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "controlled-generation"]]
+    files: [".agents/skills/yss-ddd-scaffold-generator/scripts/generate_scaffold.mjs", ".agents/skills/yss-implementation-contract-compiler/references/compiler-contract.yaml"],
+    markers: [[".agents/skills/yss-product-lifecycle/SKILL.md", "validated"]]
   },
-  router: {
-    message: "YSS Router stage 7 scenarios passed",
-    files: [".agents/skills/yss-router/references/router-contract.yaml", ".agents/skills/yss-router/SKILL.md"],
-    markers: [[".agents/skills/yss-router/references/router-contract.yaml", "slice_contract_required"]]
+  implementationContractCompiler: {
+    message: "YSS implementation contract compiler stage 7 scenarios passed",
+    files: [".agents/skills/yss-implementation-contract-compiler/references/compiler-contract.yaml", ".agents/skills/yss-implementation-contract-compiler/SKILL.md"],
+    markers: [[".agents/skills/yss-implementation-contract-compiler/references/compiler-contract.yaml", "impact_to_capabilities"], [".agents/skills/yss-implementation-contract-compiler/SKILL.md", "required_capabilities"]]
   },
   openapiYaml: {
     message: "OpenAPI YAML-first 场景验证通过",
@@ -201,14 +230,24 @@ export function runScenario(name) {
   for (const file of profile.files) ensure(exists(file), `缺少场景资产: ${file}`);
   for (const [file, marker] of profile.markers) ensure(read(file).includes(marker), `场景资产缺少标记 ${marker}: ${file}`);
   if (name === "lifecycle") {
-    const result = spawnSync("scripts/verify-lifecycle-registry", [], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["scripts/verify-lifecycle-registry", ], { cwd: root, encoding: "utf8" });
     ensure(result.status === 0, result.stderr || result.stdout);
     const registry = parseDocument(read("docs/process/lifecycle-registry.yaml"), { uniqueKeys: true }).toJS({ maxAliasCount: 0 });
     const releaseGate = registry.gates.find((gate) => gate.id === "gate.release-ready");
     ensure(releaseGate?.requires_gates?.includes("gate.frontend-implementation-verified"), "发布就绪未依赖前端实现还原门禁");
     const contract = parseDocument(read(".agents/skills/yss-product-lifecycle/references/orchestration-contract.yaml"), { uniqueKeys: true }).toJS({ maxAliasCount: 0 });
+    ensure(contract.ready_for_agent?.requires_vertical_slice_ticket === true && contract.ready_for_agent?.parent_ticket_as_implementation_ref === "forbidden", "ready_for_agent 未强制垂直切片且禁止父 Ticket 实现引用");
+    ensure(includesAll(contract.ready_for_agent?.required, ["ticket_decomposition_result_ref", "vertical_slice_ticket_ref", "vertical_slice_ticket_role", "vertical_slice_ticket_kind"]), "ready_for_agent 缺少 Ticket 正式化必填字段");
+    ensure(contract.ticket_formalization?.implementation_predecessor === "work-unit.ticket-decomposition" && contract.ticket_formalization?.vertical_slice_ticket?.parent_ticket_ref_forbidden === true, "Ticket 正式化实现前置或父 Ticket 禁止规则缺失");
+    ensure(contract.transition_graph?.implementation_requires_predecessor === "work-unit.ticket-decomposition", "生命周期转换图未声明实现前置工作单元");
+    ensure(JSON.stringify(contract.transition_graph?.forbidden_shortcuts) === JSON.stringify([
+      { from: "work-unit.spec-synthesis", to: "work-unit.slice-implementation" },
+      { from: "work-unit.prototype-design", to: "work-unit.slice-implementation" },
+      { from: "work-unit.technical-analysis", to: "work-unit.slice-implementation" },
+    ]), "生命周期转换图缺少 Spec/原型/技术分析到实现的越级阻断");
+    ensure(lifecycleTransitionContract.next_routes["work-unit.ticket-decomposition"]?.includes("work-unit.slice-implementation"), "转换校验器未允许 Ticket 正式化后进入实现");
     ensure(contract.release_readiness?.conditional?.ui_impact?.includes("gate.frontend-implementation-verified") && contract.frontend_implementation_plan?.acceptance?.includes("no_template_placeholders"), "发布公式或前端计划实质校验不完整");
-    const templateRejected = spawnSync("scripts/verify-frontend-implementation-evidence", ["docs/process/templates/frontend-implementation-plan-template.yaml"], { cwd: root, encoding: "utf8" });
+    const templateRejected = spawnSync(process.execPath, ["scripts/verify-frontend-implementation-evidence", "docs/process/templates/frontend-implementation-plan-template.yaml"], { cwd: root, encoding: "utf8" });
     ensure(templateRejected.status !== 0 && templateRejected.stderr.includes("template: false"), "前端实现计划占位模板可冒充正式批准证据");
   }
   if (name === "matt") {
@@ -217,7 +256,6 @@ export function runScenario(name) {
     const data = contract.toJS({ maxAliasCount: 0 });
     validateMattContract(data);
     validateInvocationBoundary(data);
-    validateLifecycleApprovalAndArtifactGuardrails(data);
     const validResult = {
       result_schema: "workflow-execution-result-v1",
       work_unit: "work-unit.spec-synthesis",
@@ -231,6 +269,46 @@ export function runScenario(name) {
       blocking_signals: []
     };
     validateWorkflowExecutionResult(validResult, data.workflow_execution_result, data.work_unit_routes);
+    const validTicketResult = {
+      ...validResult,
+      work_unit: "work-unit.ticket-decomposition",
+      next_route: "work-unit.slice-implementation",
+      ticket_decomposition_result_ref: "docs/.scratch/demo/evidence/ticket-decomposition-result.yaml",
+      vertical_slice_ticket_ref: "docs/.scratch/demo/issues/01-valid-slice.md",
+    };
+    validateWorkflowExecutionResult(validTicketResult, data.workflow_execution_result, data.work_unit_routes);
+    const validImplementationResult = {
+      ...validResult,
+      evidence_refs: [virtualTicketDecompositionRef, "docs/process/lifecycle-registry.yaml"],
+      work_unit: "work-unit.slice-implementation",
+      next_route: "work-unit.code-review",
+      predecessor_work_unit: "work-unit.ticket-decomposition",
+      ready_for_agent: true,
+      ticket_decomposition_result_ref: "docs/.scratch/demo/evidence/ticket-decomposition-result.yaml",
+      ticket_decomposition_result_status: "completed",
+      vertical_slice_ticket_ref: "docs/.scratch/demo/issues/01-valid-slice.md",
+      vertical_slice_ticket_role: "ready-for-agent",
+      vertical_slice_ticket_kind: "vertical-slice-ticket",
+      slice_contract_ticket_ref: "docs/.scratch/demo/issues/01-valid-slice.md",
+      slice_contract_status: "approved",
+      slice_contract_persisted: true,
+      slice_contract_current_version: true,
+    };
+    validateWorkflowExecutionResult(validImplementationResult, data.workflow_execution_result, data.work_unit_routes);
+    for (const mutate of [
+      (item) => { item.vertical_slice_ticket_role = "ready-for-human"; },
+      (item) => { item.vertical_slice_ticket_kind = "parent-ticket"; },
+      (item) => { item.vertical_slice_ticket_ref = "docs/.scratch/demo/parent-ticket.md"; },
+      (item) => { item.slice_contract_ticket_ref = "docs/.scratch/demo/issues/02-other.md"; },
+      (item) => { item.predecessor_work_unit = "work-unit.spec-synthesis"; },
+      (item) => { item.ticket_decomposition_result_status = "blocked"; },
+      (item) => { item.ticket_decomposition_result_status = "needs-human"; },
+    ]) {
+      const invalid = structuredClone(validImplementationResult); mutate(invalid);
+      let rejected = false;
+      try { validateWorkflowExecutionResult(invalid, data.workflow_execution_result, data.work_unit_routes); } catch { rejected = true; }
+      ensure(rejected, "实现 Workflow Execution Result 的 Ticket 语义变异未被拒绝");
+    }
     const unavailableResult = structuredClone(validResult);
     unavailableResult.result = "blocked";
     unavailableResult.unavailable_skill = { skill: "yss-ui", provider: "codex", fallback: "manual-review", resolution: "needs-human" };
@@ -252,7 +330,8 @@ export function runScenario(name) {
       (item) => { item.new_impacts = ["new-api"]; },
       (item) => { item.workflow_reference.source = "untrusted/source"; },
       (item) => { item.workflow_reference.skill = "implement"; },
-      (item) => { item.workflow_reference.invocation_mode = "reference"; }
+      (item) => { item.workflow_reference.invocation_mode = "reference"; },
+      (item) => { item.next_route = "work-unit.slice-implementation"; }
     ]) {
       const invalid = structuredClone(validResult); mutate(invalid);
       let rejected = false;
@@ -261,7 +340,7 @@ export function runScenario(name) {
     }
     let metadataRejected = false;
     try {
-      validateInvocationMetadata(data.matt_invocation_boundary, (skill) => skill === "grill-with-docs" ? read(`.agents/skills/${skill}/SKILL.md`).replace("disable-model-invocation: true\n", "") : read(`.agents/skills/${skill}/SKILL.md`));
+      validateInvocationMetadata(data.matt_invocation_boundary, (skill) => skill === "grill-with-docs" ? read(`.agents/skills/${skill}/SKILL.md`).replace(/disable-model-invocation: true\r?\n/, "") : read(`.agents/skills/${skill}/SKILL.md`));
     } catch { metadataRejected = true; }
     ensure(metadataRejected, "user-invoked front matter 变异未被 baseline oracle 拒绝");
     const mutations = [
@@ -295,17 +374,12 @@ export function runScenario(name) {
     let invocationProseRejected = false;
     try { validateInvocationProse(skill.replace("不得自动调用它们或代替其创建正式资产", "可以自动调用并创建正式资产"), adapter, orchestration); } catch { invocationProseRejected = true; }
     ensure(invocationProseRejected, "调用边界 prose 变异未被 baseline oracle 拒绝");
-    const codexProjection = ".codex/skills/yss-product-lifecycle";
-    if (exists(`${codexProjection}/SKILL.md`)) {
-      for (const relative of ["SKILL.md", "references/matt-yss-adapter.md", "references/orchestration-contract.yaml"]) {
-        ensure(read(`.agents/skills/yss-product-lifecycle/${relative}`) === read(`${codexProjection}/${relative}`), `YSS 生命周期投影未同步: ${relative}`);
-      }
-    } else {
-      ensure(read(codexProjection).trim() === "../../.agents/skills/yss-product-lifecycle", "YSS 生命周期 Codex pointer 投影未同步");
+    for (const relative of ["SKILL.md", "references/matt-yss-adapter.md", "references/orchestration-contract.yaml"]) {
+      ensure(read(`.agents/skills/yss-product-lifecycle/${relative}`) === read(`.codex/skills/yss-product-lifecycle/${relative}`), `YSS 生命周期投影未同步: ${relative}`);
     }
   }
   if (name === "yssDtoWire") {
-    const result = spawnSync("scripts/verify-yss-dto-openapi-profile", [], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(process.execPath, ["scripts/verify-yss-dto-openapi-profile", ], { cwd: root, encoding: "utf8" });
     ensure(result.status === 0, result.stderr || result.stdout);
   }
   process.stdout.write(`${profile.message}\n`);

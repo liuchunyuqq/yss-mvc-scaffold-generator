@@ -2,7 +2,6 @@
   "name": "yss-spec-project-template",
   "private": true,
   "scripts": {
-    "dev": "node -e \"console.log('YSS template-source harness ready (no dev server; run scripts/verify-template for validation).')\"",
-    "check-agent-environment": "node scripts/check-agent-environment.mjs"
+    "dev": "node -e \"console.log('YSS template-source harness ready (no dev server; run scripts/verify-template for validation).')\""
   }
 }

@@ -160,6 +160,8 @@ Recommended:
 Mandatory:
 
 - Use Javadoc (`/** ... */`) for classes, fields, and methods. Do not use `//` as class or method API documentation.
+- Entity、PO、VO、DTO、Command、Query、Request、Response 的每个业务字段都要有简体中文语义 Javadoc。`id`、`version`、`status`、`code`、`type`、`value`、`time`、`size` 等高歧义字段必须说明所属对象和用途；存在单位、格式、取值范围、空值语义、状态来源或关联关系时一并说明。
+- Boolean 字段说明 `true` 和 `false` 各自代表的业务状态；时间字段说明对应的业务事件，并在有要求时注明时区或格式；大小字段说明单位。
 - Abstract methods and interface methods need Javadoc explaining purpose, parameters, returns, exceptions, and implementation notes.
 - Classes must include creator and creation date if the repository convention requires Alibaba manual compliance; otherwise follow local project header policy.
 - Place single-line comments above the code they explain. Align multi-line block comments with code.
@@ -170,6 +172,8 @@ Mandatory:
 Recommended/reference:
 
 - Prefer clear Chinese comments over awkward English; keep technical terms in English.
+- 在跨资源执行顺序、事务提交前后、失败补偿、幂等命中或冲突、状态迁移、复杂 Excel 行列映射和数据库厂商特殊处理前写意图注释，说明“为何如此”和失败语义；不要逐行翻译赋值、循环或空判断。
+- 对较长或同时包含读取、校验、远程调用、持久化和响应装配的方法，先拆分职责，再在阶段边界补充注释。方法长度只能作为 Review 启发式，不能代替职责和复杂度判断。
 - Update comments when changing parameters, returns, exceptions, or core logic.
 - Delete dead code. If temporarily commenting code, explain why above it.
 - Keep comments concise and focused on design intent, business meaning, and non-obvious logic.
