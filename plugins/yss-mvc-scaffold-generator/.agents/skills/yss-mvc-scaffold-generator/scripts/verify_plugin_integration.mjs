@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 const base=await mkdtemp(path.join(os.tmpdir(),'mvc-isolated-plugin-'));
 if(!process.argv[2])throw new Error('Usage: verify_plugin_integration.mjs <plugin-root>');
 const source=path.resolve(process.argv[2]);
@@ -24,7 +25,10 @@ try {
  await writeFile(path.join(origin,'docs/.scratch/checkpoint-probe/spec.md'),'# 验收\n- AC-01：查询可见模板\n- AC-02：拒绝无权限请求\n');
  run(process.execPath,[path.join(origin,'scripts/init-acceptance-checkpoint.mjs'),'--project-root',origin,'--goal','查询模板','--baseline','docs/.scratch/checkpoint-probe/spec.md','--output','docs/.scratch/checkpoint-probe/checkpoint.yaml']);
  run(process.execPath,[path.join(origin,'scripts/verify-lifecycle-checkpoint'),path.join(origin,'docs/.scratch/checkpoint-probe/checkpoint.yaml')]);
- const standardsRequest={baseline_ref:'docs/engineering/data-analysis-java-conventions.md',work_units:[{id:'http',required_skills:['yss-web-controller','yss-dto','yss-validation'],impacts:['backend_impact','web-adapter-impact','request-validation','mapper-registration-impact']}]};
+ run(process.execPath,[path.join(origin,'scripts/verify-mvc-structure.mjs'),'--project-root',origin,'--audit-all']);
+ const scaffoldLayout=JSON.parse(await readFile(path.join(origin,'docs/process/mvc-scaffold-layout.json'),'utf8'));
+ await writeFile(path.join(origin,'layout-contract.json'),JSON.stringify({allowed_write_paths:['server','core','client','adapter','repository','feign-client'],mvc_structure:{type_layout:{...scaffoldLayout,types:scaffoldLayout.types.map(({source_digest,...row})=>row)}}}));
+ const standardsRequest={baseline_ref:'docs/engineering/data-analysis-java-conventions.md',work_units:[{id:'http',contract_ref:'layout-contract.json',required_skills:['yss-web-controller','yss-dto','yss-validation'],impacts:['backend_impact','web-adapter-impact','request-validation','mapper-registration-impact']}]};
  await writeFile(path.join(origin,'standards-request.json'),JSON.stringify(standardsRequest));
  const compileStandards=project=>run(process.execPath,[path.join(project,'scripts/applicable-standards.mjs'),'--input',path.join(project,'standards-request.json'),'--output',path.join(project,'standards-context.json'),'--work-unit','http']);
  const compiled=JSON.parse(compileStandards(origin).stdout);
@@ -47,6 +51,9 @@ try {
  const restoredState=JSON.parse(await readFile(path.join(base,'work2/skillUtils/mvc-environment-state.json'),'utf8'));
  assert.equal(restoredState.digest,originalState.digest);
  // Git checkout may normalize project line endings; recompile then compare routing, not raw file hashes.
+ const clonedContract=JSON.parse(await readFile(path.join(clone,'layout-contract.json'),'utf8'));
+ clonedContract.mvc_structure.type_layout.policy_digest=createHash('sha256').update(await readFile(path.join(clone,'docs/process/mvc-package-layout.yaml'))).digest('hex');
+ await writeFile(path.join(clone,'layout-contract.json'),JSON.stringify(clonedContract));
  const restoredPlan=JSON.parse(compileStandards(clone).stdout);
  assert.deepEqual({...restoredPlan,standards_digest:null},{...compiled,standards_digest:null});
  run(process.execPath,[path.join(clone,'scripts/applicable-standards.mjs'),'--input',path.join(clone,'standards-context.json'),'--check','--work-unit','http']);

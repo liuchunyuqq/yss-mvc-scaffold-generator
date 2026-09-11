@@ -103,3 +103,8 @@ Windows 使用 `mvnw.cmd`。指定外部 settings 时，Maven 命令必须加 `-
 ## 维护验证
 
 修改后执行 `node --test scripts/generate_project.test.mjs scripts/restore_environment.test.mjs`。插件同步后执行 `node scripts/verify_plugin_integration.mjs <插件根>`，验证脱离基座的工程生成、真实 Git clone 后恢复、工作树不变与同步漂移检测；该命令只在临时目录创建测试 Git commit，不提交用户仓库。
+
+
+## Java 类型职责与包布局
+
+实现前读取目标项目 `docs/process/mvc-package-layout.yaml`（MVC Profile 唯一机器规则源），按 `docs/process/mvc-package-layout.md` 登记并校验 `mvc_structure.type_layout`。新增、移动或修改 Java 类型须校验实际职责、包、模块与目录；allowed_write_paths 不构成布局豁免。恢复工作单元和独立 Review 使用相同规则及摘要。

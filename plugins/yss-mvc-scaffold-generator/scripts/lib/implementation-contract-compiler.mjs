@@ -5,6 +5,7 @@ import { parseDocument } from "../vendor/yaml.mjs";
 import { DEFAULT_REGISTRY, loadSkillRegistry } from "./skill-registry.mjs";
 import { ROOT } from "./skill-supply-chain.mjs";
 import { resolveApplicableStandards, verifyApplicableStandards, standardsRoots as resolveStandardsRoots } from "./applicable-standards.mjs";
+import { isMvcProject, validateLayoutPlan } from './mvc-package-layout.mjs';
 
 export const DEFAULT_COMPILER_CONTRACT = path.join(
   resolveStandardsRoots(ROOT).skillRoot,
@@ -184,6 +185,7 @@ export function evaluateContractFreshness(contract, { registry, compilerContract
   if (contract?.schema_version !== 2) fail("Slice Implementation Contract schema v1 已停止支持；必须重新编译 v2 合同");
   const resolution = contract.resolution ?? contract;
   const reasons = [];
+  if (standardsRoots && isMvcProject(standardsRoots.projectRoot)) reasons.push(...validateLayoutPlan(standardsRoots.projectRoot, contract).errors);
   if (resolution.registry_digest !== digestDocument(registry)) reasons.push("registry-digest-changed");
   if (resolution.compiler_contract_digest !== digestDocument(compilerContract)) reasons.push("compiler-contract-digest-changed");
   if (resolution.applicable_standards) {

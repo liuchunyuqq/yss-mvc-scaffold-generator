@@ -61,3 +61,8 @@ description: Use when a YSS vertical slice is entering implementation, spans mul
 业务合同先消费项目 `docs/process/development-gate.md`：编译来源追踪、精确验收 ID、真实模块路径、`verification_plan` 和命中影响的持久化/查询任务。`validated` 必须以准入实际校验和当前输入为依据。分类检查不得互相替代；执行证据使用 `run-governance-check.mjs` 产生，不能手写通过记录。来源语义变化须展示前后差异与影响，独立 Review 仍负责判断是否弱化需求。
 
 输出合同草案、capability/Recipe 解析记录、技能依赖闭包、不适用理由、阻塞项、TDD 模式、工作单元、预期证据、验证命令、人工审查点、完整重路由触发器，以及建议的 `suggested_owner_role_id`（UI 影响 → `role.frontend-engineer`，后端影响 → `role.backend-engineer`，测试/审查 → `role.test-engineer`）。自然语言说明不能替代结构化合同字段。编译器不得自行批准合同、设置 `ready-for-agent` 或关闭会签门禁；owner 建议只供主控派活。
+
+
+## Java 类型职责与包布局
+
+仅当目标项目使用 MVC Profile 时，实现前读取目标项目 `docs/process/mvc-package-layout.yaml`（MVC Profile 唯一机器规则源），按 `docs/process/mvc-package-layout.md` 登记并校验 `mvc_structure.type_layout`。新增、移动或修改 Java 类型须校验实际职责、包、模块与目录；allowed_write_paths 不构成布局豁免。恢复工作单元和独立 Review 使用相同规则及摘要。

@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { projectPath } from './contract-integrity.mjs';
 import { evidenceKey } from './acceptance-policy.mjs';
+import { isMvcProject, layoutPolicyRef } from './mvc-package-layout.mjs';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const executorDigest = () => hash(readFileSync(fileURLToPath(import.meta.url)));
 const reportRoot = root => projectPath(root,'.yss/evidence');
@@ -32,7 +33,8 @@ export function snapshotInputs(root, refs) {
 }
 
 export function checkInputs(root, contract, check) {
-  return snapshotInputs(root,[...contract.allowed_write_paths,...check.input_paths,...Object.values(contract.artifacts??{}),...(contract.input_refs??[])]);
+  const layoutInputs = isMvcProject(root) ? [layoutPolicyRef, '.yss/scaffold-generation.json', 'scripts/verify-mvc-structure.mjs', 'scripts/lib/mvc-structure.mjs', 'scripts/lib/mvc-package-layout.mjs', 'scripts/lib/java/MvcAst.java', 'scripts/lib/json-schema.mjs', 'docs/process/schemas/mvc-type-layout.schema.json'] : [];
+  return snapshotInputs(root,[...contract.allowed_write_paths,...check.input_paths,...Object.values(contract.artifacts??{}),...(contract.input_refs??[]),...layoutInputs,...(contract.mvc_structure?.baseline_snapshot_ref ? [contract.mvc_structure.baseline_snapshot_ref] : [])]);
 }
 
 function executionContext(check) {

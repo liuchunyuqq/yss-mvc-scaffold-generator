@@ -17,6 +17,11 @@ public class MvcAst {
         for (String value : values) result.add(q(value));
         return "[" + String.join(",", result) + "]";
     }
+    static String annotationTypes(ModifiersTree modifiers) {
+        List<String> names = new ArrayList<>();
+        for (AnnotationTree annotation : modifiers.getAnnotations()) names.add(annotation.getAnnotationType().toString());
+        return array(names);
+    }
     public static void main(String[] args) throws Exception {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) throw new IllegalStateException("JDK compiler required");
@@ -57,13 +62,13 @@ public class MvcAst {
                             String doc = docs.getDocCommentTree(memberPath) == null ? "" : docs.getDocCommentTree(memberPath).toString();
                             if (member instanceof VariableTree) {
                                 VariableTree field = (VariableTree) member;
-                                fields.add("{\"name\":"+q(field.getName().toString())+",\"type\":"+q(field.getType().toString())+",\"annotations\":"+q(field.getModifiers().getAnnotations().toString())+",\"doc\":"+q(doc)+"}");
+                                fields.add("{\"name\":"+q(field.getName().toString())+",\"type\":"+q(field.getType() == null ? "" : field.getType().toString())+",\"annotationTypes\":"+annotationTypes(field.getModifiers())+",\"annotations\":"+q(field.getModifiers().getAnnotations().toString())+",\"doc\":"+q(doc)+"}");
                             } else if (member instanceof MethodTree) {
                                 MethodTree method = (MethodTree) member;
-                                methods.add("{\"name\":"+q(method.getName().toString())+",\"returnType\":"+q(method.getReturnType() == null ? null : method.getReturnType().toString())+",\"public\":"+(node.getKind() == Tree.Kind.INTERFACE || method.getModifiers().getFlags().contains(javax.lang.model.element.Modifier.PUBLIC))+",\"doc\":"+q(doc)+"}");
+                                methods.add("{\"name\":"+q(method.getName().toString())+",\"annotationTypes\":"+annotationTypes(method.getModifiers())+",\"returnType\":"+q(method.getReturnType() == null ? null : method.getReturnType().toString())+",\"public\":"+(node.getKind() == Tree.Kind.INTERFACE || method.getModifiers().getFlags().contains(javax.lang.model.element.Modifier.PUBLIC))+",\"doc\":"+q(doc)+"}");
                             }
                         }
-                        classes.add("{\"name\":"+q(full)+",\"simpleName\":"+q(name)+",\"file\":"+q(Paths.get(unit.getSourceFile().toUri()).toString())+",\"kind\":"+q(node.getKind().toString())+",\"annotations\":"+q(node.getModifiers().getAnnotations().toString())+",\"extends\":"+q(node.getExtendsClause() == null ? "" : node.getExtendsClause().toString())+",\"interfaces\":"+array(interfaces)+",\"imports\":"+array(imports)+",\"refs\":"+array(refs)+",\"fields\":["+String.join(",",fields)+"],\"methods\":["+String.join(",",methods)+"]}");
+                        classes.add("{\"package\":"+q(pkg)+",\"owner\":"+q(owner)+",\"annotationTypes\":"+annotationTypes(node.getModifiers())+",\"name\":"+q(full)+",\"simpleName\":"+q(name)+",\"file\":"+q(Paths.get(unit.getSourceFile().toUri()).toString())+",\"kind\":"+q(node.getKind().toString())+",\"annotations\":"+q(node.getModifiers().getAnnotations().toString())+",\"extends\":"+q(node.getExtendsClause() == null ? "" : node.getExtendsClause().toString())+",\"interfaces\":"+array(interfaces)+",\"imports\":"+array(imports)+",\"refs\":"+array(refs)+",\"fields\":["+String.join(",",fields)+"],\"methods\":["+String.join(",",methods)+"]}");
                         return super.visitClass(node, full);
                     }
                 }.scan(unit, null);

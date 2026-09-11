@@ -1,0 +1,35 @@
+schema_version: 1
+policy_id: yss.mvc.package-layout
+policy_version: 1
+base_package_source: .yss/scaffold-generation.json#base_package
+modules: [server, core, client, repository, adapter, feign-client]
+layout: module-role-feature
+unknown_role: require-explicit-plan
+exception_policy: baseline-only-no-slice-overrides
+# prefix 允许零或多个合法 Java 包段；exact 只允许该包。
+# 职责由 AST 注解、继承图和合同语义共同识别，不以类名后缀判定。
+rules:
+  - {rule_id: mvc.layout.controller, role: controller, module: server, prefixes: [server.controller], annotations: [org.springframework.web.bind.annotation.RestController, org.springframework.stereotype.Controller]}
+  - {rule_id: mvc.layout.advice, role: advice, module: server, prefixes: [server.advice], annotations: [org.springframework.web.bind.annotation.ControllerAdvice, org.springframework.web.bind.annotation.RestControllerAdvice]}
+  - {rule_id: mvc.layout.schedule, role: schedule, module: server, prefixes: [server.schedule], method_annotations: [org.springframework.scheduling.annotation.Scheduled, org.springframework.scheduling.annotation.Schedules], bases: [org.springframework.scheduling.quartz.QuartzJobBean, org.quartz.Job]}
+  - {rule_id: mvc.layout.configuration, role: configuration, module: server, prefixes: [server.configuration], annotations: [org.springframework.context.annotation.Configuration], method_annotations: [org.springframework.context.annotation.Bean]}
+  - {rule_id: mvc.layout.security, role: security, module: server, prefixes: [server.security], bases: [org.springframework.web.filter.OncePerRequestFilter, org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter, org.springframework.web.servlet.HandlerInterceptor]}
+  - {rule_id: mvc.layout.application, role: application, module: server, exact: ['', server], annotations: [org.springframework.boot.autoconfigure.SpringBootApplication], reason: Spring Boot 启动入口允许基础包根及 server 根，兼容既有脚手架。}
+  - {rule_id: mvc.layout.service, role: service, module: core, prefixes: [core.service], excluded_prefixes: [core.service.impl], kind: INTERFACE}
+  - {rule_id: mvc.layout.service-impl, role: service-impl, module: core, prefixes: [core.service.impl], kind: CLASS, annotations: [org.springframework.stereotype.Service]}
+  - {rule_id: mvc.layout.gateway, role: gateway, module: core, prefixes: [core.gateway], kind: INTERFACE}
+  - {rule_id: mvc.layout.policy, role: policy, module: core, prefixes: [core.policy]}
+  - {rule_id: mvc.layout.model, role: model, module: core, prefixes: [core.model]}
+  - {rule_id: mvc.layout.request, role: request, module: client, prefixes: [client.request]}
+  - {rule_id: mvc.layout.query, role: query, module: client, prefixes: [client.query]}
+  - {rule_id: mvc.layout.response, role: response, module: client, prefixes: [client.response]}
+  - {rule_id: mvc.layout.entity, role: entity, module: repository, prefixes: [repository.entity], annotations: [com.baomidou.mybatisplus.annotation.TableName], field_annotations: [com.baomidou.mybatisplus.annotation.TableId, com.baomidou.mybatisplus.annotation.TableField], bases: [com.yss.cloud.mybatis.entity.BaseEntity, com.yss.cloud.mybatis.entity.YssEntity]}
+  - {rule_id: mvc.layout.mapper, role: mapper, module: repository, prefixes: [repository.mapper], kind: INTERFACE, annotations: [org.apache.ibatis.annotations.Mapper], bases: [com.baomidou.mybatisplus.core.mapper.BaseMapper, com.yss.cloud.mybatis.mapper.YssMapper]}
+  - {rule_id: mvc.layout.convertor, role: convertor, module: repository, prefixes: [repository.convertor], annotations: [org.mapstruct.Mapper]}
+  - {rule_id: mvc.layout.database, role: database, module: adapter, prefixes: [adapter.database, adapter.oracle, adapter.oceanbase], reason: 保留现有 Oracle 执行器布局。}
+  - {rule_id: mvc.layout.mock, role: mock, module: adapter, prefixes: [adapter.mock], reason: 保留既有 Mock 执行器布局，不构成生产可用证据。}
+  - {rule_id: mvc.layout.integration, role: integration, module: adapter, prefixes: [adapter.integration]}
+  - {rule_id: mvc.layout.file, role: file, module: adapter, prefixes: [adapter.file]}
+  - {rule_id: mvc.layout.adapter-configuration, role: adapter-configuration, module: adapter, prefixes: [adapter.configuration], annotations: [org.springframework.context.annotation.Configuration], method_annotations: [org.springframework.context.annotation.Bean]}
+  - {rule_id: mvc.layout.remote-client, role: remote-client, module: feign-client, prefixes: [feign.client], kind: INTERFACE, annotations: [org.springframework.cloud.openfeign.FeignClient]}
+  - {rule_id: mvc.layout.feign-configuration, role: feign-configuration, module: feign-client, prefixes: [feign.configuration], annotations: [org.springframework.context.annotation.Configuration], method_annotations: [org.springframework.context.annotation.Bean]}

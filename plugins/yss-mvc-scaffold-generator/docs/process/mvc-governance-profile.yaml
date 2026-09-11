@@ -3,6 +3,7 @@ profile_id: yss.mvc.backend
 status: active
 architecture_style: mvc
 runtime_scope: backend-only
+package_layout_policy: docs/process/mvc-package-layout.yaml
 applies_to:
   skill: yss-mvc-scaffold-generator
   project_type: data-analysis

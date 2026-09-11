@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from '../vendor/yaml.mjs';
+import { layoutPolicyRef, validateLayoutPlan } from './mvc-package-layout.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const sorted = value => Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object'
@@ -60,6 +61,7 @@ export function resolveApplicableStandards(request, roots) {
   const ids = new Set();
   const plans = [];
   const selection = [];
+  const layoutPlans = [];
   for (const unit of request.work_units) {
     if (!unit.id || ids.has(unit.id) || !Array.isArray(unit.required_skills) || !Array.isArray(unit.impacts)) throw Error('工作单元需要唯一 id、required_skills 和 impacts');
     ids.add(unit.id);
@@ -80,6 +82,18 @@ export function resolveApplicableStandards(request, roots) {
     selection.push({ id: unit.id, skills: [...skills].sort(([a], [b]) => a.localeCompare(b)) });
     const required = [];
     const onDemand = [];
+    if (identity.governance_profile === 'docs/process/mvc-governance-profile.yaml') {
+      required.push(add('project', layoutPolicyRef, 'mvc-structure-baseline', unit.id, 'required'));
+      required.push(add('project', '.yss/scaffold-generation.json', 'mvc-base-package', unit.id, 'required'));
+      if (unit.contract_ref) {
+        const contract = yaml(localFile(projectRoot, unit.contract_ref));
+        const check = validateLayoutPlan(projectRoot, contract);
+        if (check.errors.length) throw Error(check.errors.join('; '));
+        // 合同嵌入规范 bundle：只冻结布局子合同，避免全文摘要产生自引用循环。
+        layoutPlans.push({work_unit:unit.id, contract_ref:unit.contract_ref, digest:digest({mvc_structure:contract.mvc_structure, allowed_write_paths:contract.allowed_write_paths})});
+        required.push(`project:${unit.contract_ref}`);
+      }
+    }
     for (const ref of unique(['CONTEXT.md', request.baseline_ref, ...(request.context_refs ?? [])])) required.push(add('project', ref, 'baseline-or-context', unit.id, 'required'));
     for (const ref of policy.repository_standards) if (existsSync(localFile(projectRoot, ref))) required.push(add('project', ref, 'repository-standard', unit.id, 'required'));
     for (const [skill, reasons] of [...skills].sort(([a], [b]) => a.localeCompare(b))) {
@@ -104,6 +118,7 @@ export function resolveApplicableStandards(request, roots) {
     schema_version: 1,
     policy_id: policy.policy_id,
     request,
+    ...(layoutPlans.length ? {layout_plans:layoutPlans} : {}),
     // 冻结实际选择结果；无关规则、未选 skill 的变化不使本任务失效。
     selection_digest: digest({ selection, profile }),
     sources: [...sources.values()].sort((a, b) => a.ref.localeCompare(b.ref)),
@@ -111,7 +126,7 @@ export function resolveApplicableStandards(request, roots) {
       work_units: plans,
       context_stop_rule: 'minimal-sufficient-evidence',
       missing_context_action: 'refresh-or-block',
-      reload_when: ['work-unit-changed', 'context-resumed', 'applicable-source-changed', 'impact-expanded']
+      reload_when: ['work-unit-changed', 'context-resumed', 'applicable-source-changed', 'impact-expanded', 'java-file-added-or-moved', 'java-package-or-role-changed']
     }
   };
   return { ...result, digest: digest(result) };
@@ -132,5 +147,7 @@ export function contextForWorkUnit(bundle, workUnit, roots) {
   if (check.freshness !== 'current') throw Error(check.reasons.join('; '));
   const plan = bundle.context_plan.work_units.find(unit => unit.work_unit === workUnit);
   if (!plan) throw Error(`未登记的工作单元: ${workUnit}`);
+  const identity = yaml(localFile(roots.projectRoot, 'yss-project.yaml'));
+  if (identity.governance_profile === 'docs/process/mvc-governance-profile.yaml' && !bundle.request.work_units.find(u => u.id === workUnit)?.contract_ref) throw Error('MVC 工作单元恢复需要 contract_ref 和有效布局计划');
   return { standards_digest: bundle.digest, ...plan };
 }

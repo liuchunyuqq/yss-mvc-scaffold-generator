@@ -18,6 +18,7 @@ import { assertEmpty, ensureSkillUtils, put, renderAsset } from "./lib/storage.m
 import { recordGovernance } from "./lib/governance-migration.mjs";
 import { writeProjectEnvelope } from "./lib/envelope.mjs";
 import { modulePom, parentPom, writeJavaSources } from "./lib/templates.mjs";
+import { recordScaffoldLayout } from './lib/scaffold-layout.mjs';
 
 const SKILL_ID = "yss-mvc-scaffold-generator";
 let generatedJavadocAuthor;
@@ -113,6 +114,7 @@ async function generate(o) {
     if (process.env.NODE_ENV === "test" && process.env.YSS_SCAFFOLD_TEST_FAIL_AFTER_STAGING === "1") fail("测试注入：staging 后失败");
     initializeGit(staging);
     await writeGenerated(staging, ".yss/scaffold-generation.json", JSON.stringify({ schema_version: 1, skill: SKILL_ID, generation_mode: "controlled-generation", generated_at: new Date().toISOString(), ...plan }, null, 2));
+    await recordScaffoldLayout(staging);
     if (process.env.NODE_ENV === "test" && process.env.YSS_SCAFFOLD_TEST_WRITE_TARGET_DURING_STAGING === "1") await writeGenerated(o.targetDir, "keep.txt", "concurrent content");
     if (await exists(o.targetDir)) await rmdir(o.targetDir);
     await rename(staging, o.targetDir);

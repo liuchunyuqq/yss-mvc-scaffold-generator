@@ -54,3 +54,8 @@ YSS 页面模块约定（YTable、YFormily、页面骨架等）走 Standards，�
 | `drift`、`new_impacts`、`required_skills` 与真实影响不一致 | 合同标 `stale`，回 实现合同编译器 或更早生命周期阶段；禁止在旧合同上继续编码 |
 
 `not-applicable` 仅当影响面未命中。命中后的 mandatory 不得豁免；只允许修复，或写完整 `seam-deferred`（风险、责任人、后续 Ticket、验证计划、目标版本或发布日期）。禁止为日常 Alibaba / YSS 新增生物人豁免门禁；安全 / 公共 API 仍走既有 `TODO-HUMAN-REVIEW` 与生物人门禁。
+
+
+### MVC 实际类型职责与包布局
+
+MVC Profile 命中时，从实际源码或 diff 独立枚举新增/修改/移动类型，依 `docs/process/mvc-package-layout.yaml` 核对职责、包、目录、模块及合同登记；不得复述合同或检查结果代替审查。记录 rule_id、实际文件/职责/包、预期模式和原因。明确规则违反为 violation，个人目录偏好为 suggestion。
