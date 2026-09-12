@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { isMvcProject, checkPackageLayout } from './mvc-package-layout.mjs';
 const ast = fileURLToPath(new URL('./java/MvcAst.java', import.meta.url));
 
 export function parseJavaProject(root) {
@@ -34,8 +35,9 @@ export function parseJavaProject(root) {
   } finally { rmSync(temp,{recursive:true,force:true}); }
 }
 
-export function checkMvcStructure(root, profile, classes = parseJavaProject(root)) {
+export function checkMvcStructure(root, profile, classes = parseJavaProject(root), options = {}) {
   const errors=[];
+  if (isMvcProject(root) || options.layout) errors.push(...checkPackageLayout(root, classes, options.contract ?? { mvc_structure: profile }, { audit: !options.contract, ...options }));
   const byName = new Map(classes.map(c=>[c.name,c]));
   const resolve = (owner, type) => {
     if(byName.has(type)) return byName.get(type);

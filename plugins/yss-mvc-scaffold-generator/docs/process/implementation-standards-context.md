@@ -46,3 +46,8 @@ node scripts/applicable-standards.mjs --input docs/.scratch/query/standards-cont
 Reviewer 根据真实 diff 与需求独立核对工作单元和影响面，再用同一解析器重算；不得只相信实施者的请求或摘要。遗漏影响进入普通合同刷新闭环。个人偏好只能作为 suggestion。审查操作规程仅由 Reviewer 按需加载。
 
 切片报告引用 `standards_digest`；整体报告以 `standards_digests` 保存每个 slice id 的摘要。checkpoint 验证来源新鲜度、当前合同和报告绑定。修复按 acceptance-policy.yaml 复查相关问题及受影响行为，相关摘要变化必须更新，无关验证可复用。规范集合不限制对正确性、需求覆盖、跨切片一致性及未声明影响的独立检查。
+
+
+## Java 类型职责与包布局
+
+仅当目标项目使用 MVC Profile 时，实现前读取目标项目 `docs/process/mvc-package-layout.yaml`（MVC Profile 唯一机器规则源），按 `docs/process/mvc-package-layout.md` 登记并校验 `mvc_structure.type_layout`。新增、移动或修改 Java 类型须校验实际职责、包、模块与目录；allowed_write_paths 不构成布局豁免。恢复工作单元和独立 Review 使用相同规则及摘要。

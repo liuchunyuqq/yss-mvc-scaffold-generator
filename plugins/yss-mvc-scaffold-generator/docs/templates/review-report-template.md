@@ -136,3 +136,8 @@ rg -n "from 'ant-design-vue'|<(Table|Tree|Form)[ >]|YFormily|YssFormily|YTable|Y
 | Agent 发现 `drift` / `new_impacts` / `required_skills` 与真实影响不一致后仍在旧合同上编码 | 应将合同标 `stale`，回 实现合同编译器 或更早生命周期阶段 |  |
 
 ## 签字确认
+
+
+### MVC 实际类型职责与包布局
+
+MVC Profile 命中时，从实际源码或 diff 独立枚举新增/修改/移动类型，依 `docs/process/mvc-package-layout.yaml` 核对职责、包、目录、模块及合同登记；不得复述合同或检查结果代替审查。记录 rule_id、实际文件/职责/包、预期模式和原因。明确规则违反为 violation，个人目录偏好为 suggestion。

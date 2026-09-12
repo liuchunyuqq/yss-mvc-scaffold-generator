@@ -7,6 +7,8 @@ import { validateJsonSchema } from './json-schema.mjs';
 import { acceptanceIds, validateWritePaths, validateOpenApi, validateTraceability } from './contract-integrity.mjs';
 import { validateVerificationPlan } from './verification-plan.mjs';
 import { verifyExecutionReceipt, verifyReviewRuntime, changedSinceBaseline, snapshotInputs } from './execution-evidence.mjs';
+import { validateLayoutPlan, checkPackageLayout, mergeLayoutTypes } from './mvc-package-layout.mjs';
+import { parseJavaProject } from './mvc-structure.mjs';
 
 export function readProjectDocument(root, ref) {
   if (typeof ref !== 'string' || !ref || path.isAbsolute(ref) || ref.includes(':') || ref.split(/[\\/]/).includes('..')) throw Error('非法项目引用');
@@ -54,8 +56,22 @@ export function validateDevelopmentGate(root, state, mode) {
       errors.push(...validateVerificationPlan(contract, [...impacts]));
       const identity=readProjectDocument(root,'yss-project.yaml');
       if(identity.governance_profile==='docs/process/mvc-governance-profile.yaml') {
+        errors.push(...validateLayoutPlan(root, contract).errors);
+        if (!bundle.request.work_units.every(u => u.contract_ref === slice.contract_ref)) errors.push(`${slice.id}: MVC 规范恢复必须绑定当前 contract_ref`);
+        if (state.slices.length > 1 && !contract.mvc_structure?.baseline_snapshot_ref) errors.push(`${slice.id}: 多切片开发需要当前切片签名 baseline_snapshot_ref，不能靠提交前片代码清空变化`);
+        if (contract.mvc_structure?.baseline_snapshot_ref) changedSinceBaseline(root, contract.mvc_structure.baseline_snapshot_ref, contract.mvc_structure.baseline_exclusions ?? []);
+        if (mode === 'completion') {
+          const excluded = [state.overall.checkpoint_ref, ...state.slices.map(s => s.review_ref), state.overall.review_ref].filter(Boolean);
+          const changed = changedSinceBaseline(root, state.overall.baseline_snapshot_ref, excluded);
+          // 整体真实变化在切片集合上查遗漏；每个切片仍独立核对自己的计划。
+          const contracts = state.slices.map(s => readProjectDocument(root, s.contract_ref));
+          const merged = mergeLayoutTypes(contracts);
+          errors.push(...merged.errors);
+          const union = { ...contract, allowed_write_paths: contracts.flatMap(c => c.allowed_write_paths), mvc_structure: { ...contract.mvc_structure, type_layout: { ...contract.mvc_structure.type_layout, types: merged.types } } };
+          errors.push(...checkPackageLayout(root, parseJavaProject(root), union, { files: changed }));
+        }
         if(!contract.mvc_structure?.production_types?.length) errors.push(`${slice.id}: MVC 缺少生产实现类型清单`);
-        if(!contract.verification_plan?.some(c=>c.type==='static' && c.args?.includes('scripts/verify-mvc-structure.mjs') && c.args?.includes(slice.contract_ref))) errors.push(`${slice.id}: MVC AST 检查必须进入必需检查链路`);
+        if(!contract.verification_plan?.some(c=>c.type==='static' && ['node', process.execPath].includes(c.program) && JSON.stringify(c.args) === JSON.stringify(['scripts/verify-mvc-structure.mjs','--contract',slice.contract_ref]))) errors.push(`${slice.id}: MVC AST 检查必须使用 Node 与标准 argv，禁止审计、历史解析或仅计划检查替代结构门禁`);
         if(['persistence-impact','mybatis-framework-impact','data-impact'].some(i=>impacts.has(i)) && (!contract.mvc_structure?.entity_types?.length || !contract.mvc_structure?.mapper_types?.length)) errors.push(`${slice.id}: 缺少 Entity/MP 类型映射`);
         if(['web-adapter-impact','dto-wire-impact'].some(i=>impacts.has(i)) && !contract.verification_plan?.some(c=>c.type==='contract' && c.capabilities?.includes('dependency-bytecode'))) errors.push(`${slice.id}: 缺少实际依赖字节码发现检查`);
       }
