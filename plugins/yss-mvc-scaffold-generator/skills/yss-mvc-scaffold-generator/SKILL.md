@@ -104,6 +104,8 @@ Windows 使用 `mvnw.cmd`。指定外部 settings 时，Maven 命令必须加 `-
 
 修改后执行 `node --test scripts/generate_project.test.mjs scripts/restore_environment.test.mjs`。插件同步后执行 `node scripts/verify_plugin_integration.mjs <插件根>`，验证脱离基座的工程生成、真实 Git clone 后恢复、工作树不变与同步漂移检测；该命令只在临时目录创建测试 Git commit，不提交用户仓库。
 
+生产 MyBatis 装配变更还执行 `node scripts/verify_runtime_assembly.mjs`：通过外部 `YSS_RUNTIME_LIB_DIR` 与 `YSS_RUNTIME_H2_JAR` 提供已解析依赖，记录实际 JAR 摘要，使用生成生产配置和平台工厂验证新增/已有 XML、重复加载、启动缺失诊断及号段开关插入。该检查使用本机 H2，不证明目标 Oracle、Nacos 联调或部署成功。旧平台不提供 IdentifierGenerator 时，启用 Leaf Segment 必须先升级兼容组件；不能以依赖名或 ASSIGN_ID 注解声称号段生效。默认不强行替换项目 BOM 或固化某个 SNAPSHOT 补丁版本。
+
 
 ## Java 类型职责与包布局
 

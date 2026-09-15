@@ -1,0 +1,125 @@
+package {{BASE_PACKAGE}}.server.configuration;
+
+import com.baomidou.mybatisplus.core.config.GlobalConfig;
+import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
+import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
+import com.yss.cloud.EnableDistributedId;
+import com.yss.cloud.mybatis.config.MapperConfiguration;
+import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import org.apache.ibatis.binding.MapperMethod;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.mybatis.spring.mapper.MapperFactoryBean;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+
+/** 数据库及分布式 ID 基础设施配置。 */
+@Configuration
+@Profile("!mock")
+@EnableDistributedId
+@Import(MapperConfiguration.class)
+public class DatabaseInfrastructureConfiguration {
+  /** 将唯一平台生成器绑定至生产全局配置，在首次插入前发现装配遗漏。 */
+  @Bean
+  public static BeanPostProcessor platformIdBinding(
+      ObjectProvider<IdentifierGenerator> generators, Environment environment) {
+    return new BeanPostProcessor() {
+      @Override
+      public Object postProcessBeforeInitialization(Object bean, String beanName) {
+        if (bean instanceof GlobalConfig) {
+          IdentifierGenerator generator = generators.getIfAvailable();
+          if (generator != null) {
+            ((GlobalConfig) bean).setIdentifierGenerator(generator);
+          } else if (environment.getProperty("spring.leaf.leafSegmentEnable", Boolean.class, false)
+              || environment.getProperty("spring.leaf.leaf-segment-enable", Boolean.class, false)) {
+            throw new IllegalStateException(
+                "Leaf Segment 已启用，但当前平台组件没有 IdentifierGenerator；请升级兼容组件并重新验证插入链路");
+          }
+        }
+        return bean;
+      }
+
+      @Override
+      public Object postProcessAfterInitialization(Object bean, String beanName) {
+        if (bean instanceof SqlSessionFactory
+            && generators.getIfAvailable() != null
+            && GlobalConfigUtils.getGlobalConfig(((SqlSessionFactory) bean).getConfiguration())
+                    .getIdentifierGenerator()
+                != generators.getIfAvailable()) {
+          throw new IllegalStateException(
+              "平台 IdentifierGenerator 未接入 SqlSessionFactory: " + beanName);
+        }
+        return bean;
+      }
+    };
+  }
+
+  /** 加载项目 XML 并在代理初始化时检查映射，不创建测试专用工厂。 */
+  @Bean
+  public static BeanPostProcessor projectMapperRegistration(Environment environment) {
+    final String patterns =
+        environment.getProperty(
+            "yss.mybatis.project-mapper-locations",
+            "classpath*:mapper/**/*.xml,classpath*:mappers/**/*.xml");
+    return new BeanPostProcessor() {
+      @Override
+      public Object postProcessAfterInitialization(Object bean, String beanName) {
+        if (bean instanceof SqlSessionFactory) {
+          org.apache.ibatis.session.Configuration configuration =
+              ((SqlSessionFactory) bean).getConfiguration();
+          PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+          for (String pattern : patterns.split(",")) {
+            try {
+              for (Resource resource : resolver.getResources(pattern.trim())) {
+                if (configuration.isResourceLoaded(resource.toString())) continue;
+                try (InputStream input = resource.getInputStream()) {
+                  new XMLMapperBuilder(
+                          input,
+                          configuration,
+                          resource.toString(),
+                          configuration.getSqlFragments())
+                      .parse();
+                } catch (Exception error) {
+                  throw new IllegalStateException("Mapper XML 加载失败: " + resource, error);
+                }
+              }
+            } catch (Exception error) {
+              throw new IllegalStateException("Mapper 资源扫描失败: " + pattern, error);
+            }
+          }
+        }
+        if (bean instanceof MapperFactoryBean) {
+          MapperFactoryBean<?> mapper = (MapperFactoryBean<?>) bean;
+          for (Method method : mapper.getMapperInterface().getMethods()) {
+            if (!Modifier.isAbstract(method.getModifiers())
+                || method.isDefault()
+                || method.getDeclaringClass() == Object.class) continue;
+            try {
+              new MapperMethod.SqlCommand(
+                  mapper.getSqlSession().getConfiguration(), mapper.getMapperInterface(), method);
+            } catch (Exception error) {
+              throw new IllegalStateException(
+                  "Mapper statement 缺失: "
+                      + mapper.getMapperInterface().getName()
+                      + "."
+                      + method.getName()
+                      + "; resources="
+                      + patterns,
+                  error);
+            }
+          }
+        }
+        return bean;
+      }
+    };
+  }
+}

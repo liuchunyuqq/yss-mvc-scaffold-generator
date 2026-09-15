@@ -24,6 +24,8 @@ description: 围绕用户目标自主分析、拆分、实现、按切片与整�
 
 新需求先从实际资料整理包含稳定 AC ID 的 Spec，再执行 `node scripts/init-acceptance-checkpoint.mjs --goal "用户目标" --baseline docs/.scratch/<feature>/spec.md --output docs/.scratch/<feature>/checkpoint.yaml`。此入口计算真实摘要并生成 v2 字段，不自行拼装另一套结构；初始化通过不等于切片合同已准入。
 
+交付前按 `docs/process/development-gate.md` 提升正式资产到稳定路径并刷新受影响证据；保留功能包中的引用和历史过程记录。消费验收入口输出的 task/integration 作用域与 files、build、production-assembly、external-integration、deployment 各层状态，未验证层不能用整体完成措辞代替。
+
 `verify-lifecycle-checkpoint` 报字段、状态或摘要错误时，按 `docs/process/development-gate.md` 的恢复步骤修复后重验并继续。不得把自身记录错误作为需要用户处理的业务阻塞；也不得删除既有 slices、blockers、审查或验证记录来获得通过。
 
 仅在读取 v1 Matt 兼容记录时，按 references/matt-yss-adapter.md 解释原调用边界：直接 ask-matt 不得写生命周期资产或改变门禁/Ticket 状态，任何写入前回交本编排器；user-invoked 技能不得自动调用它们或代替其创建正式资产，历史结果归一化为 Workflow Execution Result。旧记录中的自然语言意向不构成上述结构化 Git 授权。以上仅解释历史合同，新任务继续遵循本页 v2 连续执行合同及用户已有授权。

@@ -1333,7 +1333,7 @@
         "source": "project",
         "sourceType": "local",
         "skillPath": ".agents/skills/yss-mvc-scaffold-generator/SKILL.md",
-        "effectiveHash": "663cfbab0452821323f5472805167647f34557fd472ca052b38335a3782a5135",
+        "effectiveHash": "0b64b36f3b844f5014ceaec9a7644c77d4b40145da2aa75c8a9676e866e45be3",
         "targets": [
           ".agents/skills",
           ".claude/skills",
@@ -1411,7 +1411,7 @@
         "source": "project",
         "sourceType": "local",
         "skillPath": ".agents/skills/yss-product-lifecycle/SKILL.md",
-        "effectiveHash": "1eb43bb92c0fc227b819a8a6bcb9aa713ca41fff296490576a4234cc8fa3c4cb",
+        "effectiveHash": "a45d0f38e813063ecc6bbddd78c63224eaef730cd5a40d5ece3d3eb33a934733",
         "targets": [
           ".agents/skills",
           ".claude/skills",
