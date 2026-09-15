@@ -1,6 +1,6 @@
 # 业务开发准入与验收
 
-新任务使用现有 checkpoint schema v2 和规范上下文版本 1。脚手架初始化不创建虚构需求、数据模型或完成记录；收到业务目标后由生命周期编排器建立 docs/.scratch/<feature>/ 下的 Spec、切片合同、规范上下文和 checkpoint。
+新任务使用现有 checkpoint schema v2 和规范上下文版本 1。脚手架初始化不创建虚构需求、数据模型或完成记录；收到业务目标后由生命周期编排器建立 docs/.scratch/<feature>/ 下的工作草案、切片合同、规范上下文和 checkpoint。交付前将有效 Spec、OpenAPI、数据模型和来源追踪提升到稳定路径（例如 docs/specs/<feature>/、docs/api/、docs/data/），功能包和合同保留引用并刷新摘要与相关证据；完整功能包不要求复制正式资产。历史过程证据保留原路径用于追溯。
 
 实现前执行 `node scripts/verify-development.mjs --mode implementation --checkpoint docs/.scratch/<feature>/checkpoint.yaml`。交付前执行同一命令的 `--mode completion`。缺少 checkpoint 不得跳过；旧 checkpoint 的只读查看仍使用 verify-lifecycle-checkpoint，恢复实现需补齐真实上下文。
 
@@ -43,3 +43,13 @@ DTO 字节码工具为 `node scripts/inspect-dto-dependency.mjs`，通过环境�
 校验失败先区分记录格式、过期输入和真实业务阻塞。缺必填字段、非法状态及错误引用属于工程修复：读取 schema v2 和验收模板，依据现有目标/Spec 修复原记录；保留已有切片、阻塞、Review 和证据，不以空数组重置进度。未知字段若承载有效信息，先保存在可追踪的原始备份，再迁移到对应资产。schema v1 保持只读，另建 v2 并保留 legacy_ref。
 
 摘要变化须先分析基线差异并刷新受影响合同与证据，不能只换摘要使旧证据继续有效。没有真实验收基线时继续需求分析；只有资料确实缺失、歧义、冲突或超授权才询问用户。重新执行 `node scripts/verify-lifecycle-checkpoint <记录路径>` 成功后继续生命周期，不把自身格式错误作为停止整个需求的理由。
+
+## 多任务归属、稳定资产和分层交付
+
+并行任务开始前可在 `overall.workspace` 登记 `scope: task`、`task_id` 和 `tasks`。每个任务包含唯一 `id`、精确 `process_paths`（仅 `.yss/tasks/<id>/` 下的文件）及 `write_paths`。捕获基线时将登记与完整快照一起签名；既有基线不允许事后扩大排除范围。其他任务仅变更已登记的过程文件不影响本任务范围检查；共享源码变更仍被检测，同一路径或祖先路径重叠报告冲突/依赖。当前合同允许范围必须属于当前任务，不能借扩大路径吸收其他成果。未登记的旧 checkpoint 保留原门禁行为，恢复时可迁移过程记录并为后续工作建立新基线，旧失败证据保留。
+
+`scope: task` 的通过仅表示当前任务候选通过。需要分别验证源码时在隔离工作目录执行登记命令；汇合后以 `scope: integration` 建立真实集成候选、合同、Review 与检查，不复用 task 通过作为整体通过。过程记录应在目录合同之外保留正式源码、需求和契约；清理使用 `node scripts/inspect-artifact-lifecycle.mjs` 只读预演，先处理入链引用与唯一有效副本，工具不自动删除或取消跟踪。
+
+`overall.verification_plan` 支持 `build`、`production-assembly`、`external-integration`、`deployment` 类型；原有数据库等类型保持兼容。顶层 `delivery` 按 `files`、`build`、`production-assembly`、`external-integration`、`deployment` 分层，每层为 `{status: passed|failed|not-run|deferred, check_ids: [...], reason: ...}`。通过必须绑定整体计划中的对应类型、同名 capability 与当前真实回执；未通过项写明原因和续跑条件。未登记层显示 not-run。用户接手后续测试只改变责任与范围，不改变结果。Mock、依赖解析、协议模拟、Nacos 发现实例都不能替代生产装配、远端读写或部署验证；必需检查不能通过 deferred 绕过。
+
+`verify-development --json` 输出作用域和各层结果；门禁未通过时不会把未核实的 passed 声明输出为已验证。执行器在运行子进程与验证回执时使用同一规范化环境，npm 入口 metadata、终端提示等噪声不透传；需要这些变量的检查须在 argv 中用 `${ENV:NAME}` 显式引用。实际程序、Java、Node、PATH、settings 文件及其余继承环境仍参与摘要，变化只输出字段名和脱敏原因。执行器升级后旧回执失效，使用项目公开入口重跑相关检查，不关闭环境检查。

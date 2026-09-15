@@ -67,7 +67,7 @@ export function checkMvcStructure(root, profile, classes = parseJavaProject(root
     if(service) for(const m of c.methods) if(m.public && m.name!=='<init>' && !m.doc.trim()) errors.push(`business-javadoc: ${c.name}.${m.name}`);
     if(c.name.includes('.entity.') || c.name.includes('.dto.') || (profile.entity_types??[]).includes(c.name)) for(const f of c.fields) if(f.name!=='serialVersionUID'&&!f.doc.trim()) errors.push(`field-javadoc: ${c.name}.${f.name}`);
     if(['SingleResult','MultiResult','PageResult'].includes(c.simpleName) && !c.name.startsWith(profile.wrapper_package+'.')) errors.push(`custom-wrapper: ${c.name}`);
-    if(/@RestController|@Controller/.test(c.annotations)) {
+    if(/@(?:org\.springframework\.(?:web\.bind\.annotation\.RestController|stereotype\.Controller)|RestController|Controller)(?![\w$])/.test(c.annotations)) {
       for(const ref of c.refs) {const dependency=resolve(c,ref);if(dependency && /Service(?:Impl)?$/.test(dependency.simpleName) && dependency.kind!=='INTERFACE') errors.push(`controller-service-interface: ${c.name}`);}
       for(const f of c.fields) {const dependency=resolve(c,f.type);if(dependency && /Service(?:Impl)?$/.test(dependency.simpleName) && dependency.kind!=='INTERFACE') errors.push(`controller-service-interface: ${c.name}.${f.name}`);}
       for(const m of c.methods) if(m.public && m.returnType && !(profile.download_methods??[]).includes(`${c.name}.${m.name}`)) {

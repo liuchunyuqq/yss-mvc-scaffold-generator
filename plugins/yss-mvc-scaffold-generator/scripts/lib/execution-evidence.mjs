@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { projectPath } from './contract-integrity.mjs';
 import { evidenceKey } from './acceptance-policy.mjs';
 import { isMvcProject, layoutPolicyRef } from './mvc-package-layout.mjs';
+import {workspaceOwnership,taskChanges} from './workspace-ownership.mjs';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const executorDigest = () => hash(readFileSync(fileURLToPath(import.meta.url)));
 const reportRoot = root => projectPath(root,'.yss/evidence');
@@ -37,7 +38,7 @@ export function checkInputs(root, contract, check) {
   return snapshotInputs(root,[...contract.allowed_write_paths,...check.input_paths,...Object.values(contract.artifacts??{}),...(contract.input_refs??[]),...layoutInputs,...(contract.mvc_structure?.baseline_snapshot_ref ? [contract.mvc_structure.baseline_snapshot_ref] : [])]);
 }
 
-function executionContext(check) {
+function executionContext(check, root) {
   const environmentInputs = {};
   const expand = argument => argument.replace(/\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)\}/g,(_,name)=>{
     if(!process.env[name]) throw Error(`缺少环境变量 ${name}`);
@@ -45,10 +46,22 @@ function executionContext(check) {
   });
   const program=expand(check.program), args=check.args.map(expand);
   const fileHash=value=>!/^\\\\[.?]\\/.test(value)&&existsSync(value)&&lstatSync(value).isFile()?hash(readFileSync(value)):null;
-  const inheritedEnvironment=Object.fromEntries(Object.entries(process.env).sort(([a],[b])=>a.localeCompare(b)).map(([key,value])=>[key,{value:hash(value),file:fileHash(value)}]));
+  // npm 的入口 metadata 不进入子进程；显式 ENV 引用仍受摘要保护。
+  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!/^npm_/i.test(key)&&!['INIT_CWD','NODE','NODE_EXE','COLOR','EDITOR','PROMPT','_'].includes(key)));
+  if(process.platform==='win32'&&!env.HOME) env.HOME=os.homedir();
+  const pathKey=Object.keys(env).find(key=>key.toUpperCase()==='PATH');
+  if (pathKey && process.env.npm_lifecycle_event) env[pathKey]=env[pathKey].split(path.delimiter).filter(entry=>!/[\\/]node_modules[\\/]\.bin[\\/]?$|[\\/]node-gyp-bin[\\/]?$/i.test(entry)).join(path.delimiter);
+  for(const name of Object.keys(environmentInputs)) env[name]=process.env[name];
+  const inheritedEnvironment=Object.fromEntries(Object.entries(env).map(([key,value])=>[process.platform==='win32'?key.toUpperCase():key,{value:hash(value),file:fileHash(value)}]).sort(([a],[b])=>a.localeCompare(b)));
+  const resolveBinary=name=>{
+    const candidates=/[\\/]/.test(name)?[path.resolve(root,name)]:[root,...(env[pathKey]??'').split(path.delimiter)].flatMap(dir=>process.platform==='win32'&&!path.extname(name)?(env.PATHEXT??'.COM;.EXE;.BAT;.CMD').split(';').map(ext=>path.join(dir,name+ext)): [path.join(dir,name)]);
+    const resolved=candidates.find(file=>existsSync(file)&&lstatSync(file).isFile());
+    return resolved?{path:resolved,digest:fileHash(resolved)}:null;
+  };
   const settings=path.join(os.homedir(),'.m2/settings.xml');
   const defaultSettings=/(?:^|[\\/])mvnw(?:\.cmd)?$/.test(program)&&existsSync(settings)?hash(readFileSync(settings)):null;
-  return {program,args,environment_digest:hash(JSON.stringify({platform:process.platform,arch:process.arch,node:process.version,node_binary:hash(readFileSync(process.execPath)),defaultSettings,label:check.environment,environmentInputs,inheritedEnvironment}))};
+  const environment_fields={platform:process.platform,arch:process.arch,node:process.version,node_binary:hash(readFileSync(process.execPath)),program:resolveBinary(program),java:resolveBinary(env.JAVA_HOME?path.join(env.JAVA_HOME,'bin','java'+(process.platform==='win32'?'.exe':'')):'java'),argument_files:args.map(value=>fileHash(path.resolve(root,value))),defaultSettings,label:check.environment,...Object.fromEntries(Object.entries(environmentInputs).map(([k,v])=>['explicit:'+k,v])),...Object.fromEntries(Object.entries(inheritedEnvironment).map(([k,v])=>['env:'+k,v]))};
+  return {program,args,env,environment_fields,environment_digest:hash(JSON.stringify(environment_fields))};
 }
 function receiptSignature(root, evidence, create = false) {
   const folder=reportRoot(root); if(create) mkdirSync(folder,{recursive:true});
@@ -60,7 +73,7 @@ function receiptSignature(root, evidence, create = false) {
 
 export function runCheck(root, contract, check) {
   const before=checkInputs(root,contract,check);
-  const context=executionContext(check);
+  const context=executionContext(check,root);
   const started_at=new Date().toISOString();
   let program=context.program,args=context.args;
   // Windows .cmd 无法由 execFile 直接运行。只为已登记 Wrapper 适配，严格拒绝 cmd 元字符。
@@ -70,9 +83,10 @@ export function runCheck(root, contract, check) {
     args=['/d','/s','/c','"'+[wrapper,...args].map(a=>'"'+a+'"').join(' ')+'"'];
     program=process.env.ComSpec??'cmd.exe';
   } else if (/\.(?:cmd|bat)$/i.test(program)) throw Error('仅支持受控 Maven Wrapper 批处理适配');
-  const run=spawnSync(program,args,{cwd:root,encoding:'utf8',shell:false,windowsHide:true,maxBuffer:8*1024*1024});
+  const run=spawnSync(program,args,{cwd:root,env:context.env,encoding:'utf8',shell:false,windowsHide:true,maxBuffer:8*1024*1024});
   const ended_at=new Date().toISOString();
   const evidence={schema_version:1,rule_version:'governance-integrity-v1',run_id:randomUUID(),executor_digest:executorDigest(),contract_digest:hash(JSON.stringify(contract)),check_id:check.id,type:check.type,capabilities:check.capabilities,command:check.command,program:check.program,args:check.args,environment:check.environment,environment_digest:context.environment_digest,inputs:before,started_at,ended_at,executed_at:ended_at,exit_code:run.status??-1,signal:run.signal??null,output_digest:hash((run.stdout??'')+(run.stderr??'')),inputs_unchanged:JSON.stringify(before)===JSON.stringify(checkInputs(root,contract,check))};
+  evidence.environment_fields=context.environment_fields;
   if(check.type==='review') {
     try {
       const result=JSON.parse(run.stdout);
@@ -96,7 +110,11 @@ export function verifyExecutionReceipt(root, provided, contract, check) {
     if(evidence.executor_digest!==executorDigest() || evidence.contract_digest!==hash(JSON.stringify(contract))) errors.push('执行器或合同变化');
     if(evidence.check_id!==check.id || evidence.type!==check.type || JSON.stringify(evidence.capabilities)!==JSON.stringify(check.capabilities) || evidence.command!==check.command || evidence.program!==check.program || JSON.stringify(evidence.args)!==JSON.stringify(check.args)) errors.push('检查类型或 argv 不匹配');
     if(evidence.exit_code!==0 || !evidence.inputs_unchanged || evidence.signal) errors.push('检查失败或执行期间输入变化');
-    if(evidence.environment_digest!==executionContext(check).environment_digest) errors.push('检查环境变化');
+    const context=executionContext(check,root);
+    if(evidence.environment_digest!==context.environment_digest) {
+      const fields=[...new Set([...Object.keys(evidence.environment_fields??{}),...Object.keys(context.environment_fields)])].filter(key=>JSON.stringify(evidence.environment_fields?.[key])!==JSON.stringify(context.environment_fields[key]));
+      errors.push(`检查环境变化: ${fields.join(', ')}（仅字段名；值已脱敏，请由登记入口重跑）`);
+    }
     if(JSON.stringify(evidence.inputs)!==JSON.stringify(checkInputs(root,contract,check))) errors.push('检查输入变化');
     if(!(Date.parse(evidence.started_at)<=Date.parse(evidence.ended_at)) || Date.parse(evidence.ended_at)>Date.now()+1000) errors.push('执行时间无效');
   } catch(error) { errors.push(`执行器回执缺失或无效: ${error.message}`); }
@@ -123,19 +141,21 @@ export function verifyReviewRuntime(root, review, contract) {
   } catch {return ['独立审查缺少执行器回收记录'];}
 }
 
-export function captureBaseline(root, exclusions = []) {
+export function captureBaseline(root, exclusions = [], workspace) {
   const inputs=snapshotInputs(root,['.']);
   for(const ref of exclusions) { projectPath(root,ref); delete inputs[ref]; }
   const baseline={schema_version:1,kind:'candidate-baseline',run_id:randomUUID(),created_at:new Date().toISOString(),exclusions:[...exclusions].sort(),inputs};
+  if(workspace) baseline.workspace=workspaceOwnership(root,workspace);
   baseline.signature=receiptSignature(root,baseline,true);
   const ref=`.yss/evidence/${baseline.run_id}.json`;
   writeFileSync(projectPath(root,ref),JSON.stringify(baseline,null,2)+'\n',{flag:'wx'});
   return ref;
 }
-export function changedSinceBaseline(root, ref, exclusions) {
+export function changedSinceBaseline(root, ref, exclusions, workspace) {
   const baseline=JSON.parse(readFileSync(projectPath(root,ref),'utf8'));
   if(baseline.kind!=='candidate-baseline'||baseline.signature!==receiptSignature(root,baseline)||JSON.stringify(baseline.exclusions)!==JSON.stringify([...exclusions].sort())) throw Error('候选初始快照无效或排除范围变化');
+  if(JSON.stringify(baseline.workspace)!==JSON.stringify(workspace)) throw Error('任务归属与初始快照不一致；保留旧证据，重新规划集成候选');
   const current=snapshotInputs(root,['.']);
   for(const name of exclusions) delete current[name];
-  return [...new Set([...Object.keys(baseline.inputs),...Object.keys(current)])].filter(name=>baseline.inputs[name]!==current[name]);
+  return taskChanges(root,[...new Set([...Object.keys(baseline.inputs),...Object.keys(current)])].filter(name=>baseline.inputs[name]!==current[name]),workspace);
 }

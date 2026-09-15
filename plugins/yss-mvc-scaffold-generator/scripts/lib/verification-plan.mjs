@@ -1,4 +1,4 @@
-export const CHECK_TYPES = ['static','contract','unit','mock-integration','database-integration','review'];
+export const CHECK_TYPES = ['static','contract','unit','mock-integration','database-integration','review','build','production-assembly','external-integration','deployment'];
 export function validateVerificationPlan(contract, impacts = []) {
   const errors = [];
   const plan = contract.verification_plan;

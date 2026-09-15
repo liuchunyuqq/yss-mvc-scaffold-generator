@@ -11,6 +11,8 @@ Mapper/XML 在 repository，数据库执行与 Mock 执行沿用 adapter seam。
 
 核验 MapperScan、XML namespace/方法签名、结果映射、分页插件、数据源切换先于事务。Mock 不启用数据库 Bean，不以 Mock 通过代替真实 Mapper 注册和数据库查询证据。组件原始源码事实读取对应 source-index，不引入未验证的普通 MyBatis 替代方案。
 
+验证须消费生产 Spring 工厂，测试不能额外 setMapperLocations 或替换生产 GlobalConfig/IdentifierGenerator 来补齐装配。新增 XML 纳入项目资源模式与启动检查；新生成工程默认补载 mapper/**/*.xml、mappers/**/*.xml，可用 yss.mybatis.project-mapper-locations 声明项目路径。ID 验证记录工厂实际生成器实例、解析版本和配置来源，并分别执行号段开/关的插入；多数据源须明确工厂归属后再扩展，不能把同一套 XML 无差别复制到所有工厂。
+
 ## 实现合同
 
 先读取项目 `CONTEXT.md`、`yss-project.yaml` 指向的 MVC Profile、当前工程和技术校验通过（validated）且版本当前的 Slice Implementation Contract。仅适用于 `yss.mvc.backend`、Java 8、固定六模块。按 docs/process/acceptance-policy.yaml 在目标授权内自主补齐技术输入和刷新合同，无需逐项批准。只有真实业务歧义或必要外部信息缺失才提问；环境恢复本身不证明业务验收通过。

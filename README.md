@@ -7,13 +7,70 @@
 
 生成项目固定包含 `server`、`core`、`client`、`repository`、`adapter`、`feign-client` 六个 Maven 模块，支持 Oracle、OceanBase Oracle 和可选 Mock Profile。
 
-两个平台共用同一份插件目录 `plugins/yss-mvc-scaffold-generator` 和同一个 Skill；区别只在清单文件：Codex 读取 `.agents/plugins/marketplace.json` 与 `.codex-plugin/plugin.json`，Claude Code 读取 `.claude-plugin/marketplace.json` 与 `.claude-plugin/plugin.json`。两套清单的 marketplace 名称（`personal`）、插件名、版本和描述保持一致。
+## 先选择你的使用场景
+
+| 你要做什么 | 从哪里开始 |
+|---|---|
+| 第一次在 Codex 桌面端使用 | [图文安装指南](#codex-桌面端图文安装) |
+| 使用 Codex CLI 或 Claude Code | [命令行安装](#从-github-安装) |
+| 创建全新的后端项目 | [初始化新项目](#初始化新项目) |
+| 已克隆项目，但缺少开发环境 | [恢复已克隆项目的环境](#恢复已克隆项目的环境) |
+| 已安装插件，希望获取更新 | [插件与项目环境升级](#插件更新后升级既有项目) |
+| 开发、测试或发布插件 | [本地源码安装](#从本地源码安装) / [维护与发布](#插件维护与发布) |
+
+首次使用推荐按“安装插件 → 新建任务 → 提供项目目录和需求”的顺序操作。桌面端用户可直接按下图安装，无需先执行 CLI 安装命令。
+
+## Codex 桌面端图文安装
+
+### 第一步：打开“添加插件市场”
+
+进入 Codex **设置 → 插件**，点击右上角 **添加 → 添加插件市场**。
+
+![设置中的添加菜单，红框标出添加插件市场入口](docs/images/codex-add-marketplace-menu.png)
+
+*图 1：选择红框中的“添加插件市场”。*
+
+### 第二步：填写仓库来源
+
+在弹窗中按下面的表格填写，然后点击 **添加市场**：
+
+| 字段 | 本仓库的填写方式 |
+|---|---|
+| 来源 | `https://github.com/liuchunyuqq/yss-mvc-scaffold-generator` |
+| Git 引用 | 填写 `main`；测试版本时填写维护者提供的分支或标签 |
+| 稀疏路径 | **留空**，使用完整仓库 |
+
+![添加插件市场弹窗，来源填写本仓库的 GitHub 地址](docs/images/codex-add-marketplace-dialog.png)
+
+*图 2：复制“来源”地址即可。图中的“主分支”和 `plugins/codex` 是灰色占位提示；不要把 `plugins/codex` 填入稀疏路径。本仓库的市场清单位于仓库根目录下的 `.agents/plugins/marketplace.json`。*
+
+### 第三步：安装并启用插件
+
+添加市场后，打开 **浏览目录**，找到 **YSS MVC Scaffold Generator** 并安装。返回“插件”列表，确认插件已出现且开关已开启（图 1 中的蓝色开关表示已启用）。
+
+下面三个名称对应不同对象，查看界面或执行命令时可以据此核对：
+
+| 名称 | 用途 |
+|---|---|
+| `YSS Team Plugins` | “市场”页显示的市场名称 |
+| `personal` | 本仓库清单中的市场标识，用于 CLI 命令 |
+| `yss-mvc-scaffold-generator` | 插件标识，也是调用时使用的 Skill 名称 |
+
+**添加市场后，还需要安装插件。** 仅在“市场”页看到 `YSS Team Plugins`，不能说明插件已经安装并加载。
+
+### 第四步：新建任务并开始使用
+
+安装后新建 Codex 任务，在目标工作目录中发送下面任一场景的提示词：[创建新项目](#初始化新项目) 或 [恢复已克隆项目](#恢复已克隆项目的环境)。先把示例中的路径、项目名和包名替换为自己的值。
+
+如新任务仍找不到 Skill，先检查插件是否已安装、启用，以及是否来自刚添加的市场。平台插件概念参见 [OpenAI 插件文档](https://learn.chatgpt.com/docs/plugins)。
 
 ## 从 GitHub 安装
 
 ### Codex
 
-稳定版本使用 `main` 分支：
+以下是桌面端图文安装的命令行替代方式，选择一种安装方式即可。终端需要能够执行 `codex` 命令。
+
+默认使用 `main` 分支：
 
 ```bash
 codex plugin marketplace add liuchunyuqq/yss-mvc-scaffold-generator --ref main
@@ -65,6 +122,8 @@ claude plugin install yss-mvc-scaffold-generator@personal
 
 ## 从本地源码安装
 
+本节面向插件开发者或需要验证未发布版本的使用者；普通使用者按上面的 GitHub 安装即可。
+
 本地开发或验证未发布修改时，先克隆仓库并切换到需要测试的分支：
 
 ```powershell
@@ -107,6 +166,8 @@ codex plugin add yss-mvc-scaffold-generator@personal
 
 ## 初始化新项目
 
+运行生成与恢复脚本需要 Node.js 和 Git；后续 Java 构建还需要 Java 8、Maven 及可用的依赖仓库配置。
+
 推荐在 Codex 或 Claude Code 中明确提供目标目录、项目名、基础包、数据库类型以及是否启用 Mock：
 
 ```text
@@ -131,10 +192,24 @@ Skill 会先执行 dry-run，核对参数和目标目录后再正式生成。目
 
 ## 恢复已克隆项目的环境
 
+这里的 `skillUtils` 是项目旁边的开发环境目录，例如：
+
+```text
+D:\work\
+├── analysis-service\    ← 已克隆的业务项目，作为 project-root
+└── skillUtils\          ← 由恢复流程管理的相邻环境
+```
+
 项目源码已 clone，但相邻 `skillUtils` 缺失时，可以在 Codex 或 Claude Code 中说：
 
 ```text
 使用 yss-mvc-scaffold-generator，为 D:\work\analysis-service 恢复相邻 skillUtils。
+```
+
+推荐直接使用上面的提示词，由插件定位脚本。若要手动执行，本节及升级章节中的 `node scripts/restore_environment.mjs` 命令均需在插件的 `skills/yss-mvc-scaffold-generator` 目录执行，不能在业务项目根目录直接照抄。使用本仓库源码时，先进入：
+
+```powershell
+cd D:\localProject\yss-mvc-scaffold-generator\plugins\yss-mvc-scaffold-generator\skills\yss-mvc-scaffold-generator
 ```
 
 插件会先执行只读预演：
@@ -149,9 +224,23 @@ node scripts/restore_environment.mjs --project-root D:\work\analysis-service --d
 
 ## 插件更新后升级既有项目
 
-插件升级和项目环境升级是两个独立步骤。重新安装插件不会自动修改任何项目。
+更新时依次核对下面三层。重新安装插件不会自动修改任何项目。
+
+| 层次 | 操作 | 完成后还需要做什么 |
+|---|---|---|
+| 插件市场 | 获取仓库最新内容 | 更新或重新安装插件 |
+| 已安装插件 | 获取新的 Skill 和发行资产 | 新建任务，再检查目标项目 |
+| 项目环境 | 对指定项目执行 `--check` / `--upgrade` | 验证环境、确认新任务加载结果 |
 
 ### 1. 更新并重新安装插件
+
+**Codex 桌面端：** 进入 **设置 → 插件 → 市场**，找到 **YSS Team Plugins**，点击右侧 **升级**。
+
+![市场列表中的 YSS Team Plugins，红框内包含升级按钮和删除图标](docs/images/codex-marketplace-upgrade.png)
+
+*图 3：点击红框中的“升级”；旁边的垃圾桶是删除市场。图中的本机缓存路径由 Codex 管理，无需复制或手动修改。*
+
+市场升级后，还需更新或重新安装 **YSS MVC Scaffold Generator**。如果界面没有提供插件更新入口，可使用下方 CLI 命令完成重新安装；完成后新建任务，再继续检查项目环境。
 
 Codex，GitHub marketplace 安装：
 

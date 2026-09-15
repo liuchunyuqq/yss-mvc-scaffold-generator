@@ -15,6 +15,7 @@
     "status": {"enum": ["routing", "running", "reviewing", "awaiting-input", "blocked", "completed"]},
     "slices": {"type": "array", "items": {"type": "object"}},
     "overall": {"type": "object"},
+    "delivery": {"type": "object"},
     "pause": {"type": "object"},
     "blockers": {"type": "array"},
     "legacy_ref": {"type": "string"},

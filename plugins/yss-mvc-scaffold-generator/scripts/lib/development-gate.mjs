@@ -9,6 +9,9 @@ import { validateVerificationPlan } from './verification-plan.mjs';
 import { verifyExecutionReceipt, verifyReviewRuntime, changedSinceBaseline, snapshotInputs } from './execution-evidence.mjs';
 import { validateLayoutPlan, checkPackageLayout, mergeLayoutTypes } from './mvc-package-layout.mjs';
 import { parseJavaProject } from './mvc-structure.mjs';
+import {validateStableArtifacts} from './artifact-lifecycle.mjs';
+import {deliveryResults} from './delivery-results.mjs';
+import {validateWorkspaceCandidate} from './workspace-ownership.mjs';
 
 export function readProjectDocument(root, ref) {
   if (typeof ref !== 'string' || !ref || path.isAbsolute(ref) || ref.includes(':') || ref.split(/[\\/]/).includes('..')) throw Error('非法项目引用');
@@ -46,6 +49,7 @@ export function validateDevelopmentGate(root, state, mode) {
       const bundle = readProjectDocument(root, slice.standards_ref);
       const impacts = new Set(bundle.request.work_units.flatMap(unit => unit.impacts));
       const artifacts = contract.artifacts ?? {};
+      if(mode==='completion')errors.push(...validateStableArtifacts(artifacts));
       const specIds = acceptanceIds(root, artifacts.spec);
       for(const id of specIds) specCatalogue.add(id);
       for (const id of [...(contract.acceptance_ids ?? []), ...(slice.acceptance_ids ?? [])]) {
@@ -62,7 +66,7 @@ export function validateDevelopmentGate(root, state, mode) {
         if (contract.mvc_structure?.baseline_snapshot_ref) changedSinceBaseline(root, contract.mvc_structure.baseline_snapshot_ref, contract.mvc_structure.baseline_exclusions ?? []);
         if (mode === 'completion') {
           const excluded = [state.overall.checkpoint_ref, ...state.slices.map(s => s.review_ref), state.overall.review_ref].filter(Boolean);
-          const changed = changedSinceBaseline(root, state.overall.baseline_snapshot_ref, excluded);
+          const changed = changedSinceBaseline(root, state.overall.baseline_snapshot_ref, excluded, state.overall.workspace);
           // 整体真实变化在切片集合上查遗漏；每个切片仍独立核对自己的计划。
           const contracts = state.slices.map(s => readProjectDocument(root, s.contract_ref));
           const merged = mergeLayoutTypes(contracts);
@@ -106,8 +110,9 @@ export function validateDevelopmentGate(root, state, mode) {
   if (mode === 'completion') {
     try {
       const excluded=[state.overall.checkpoint_ref,...state.slices.map(s=>s.review_ref),state.overall.review_ref].filter(Boolean);
-      const changes=changedSinceBaseline(root,state.overall.baseline_snapshot_ref,excluded);
+      const changes=changedSinceBaseline(root,state.overall.baseline_snapshot_ref,excluded,state.overall.workspace);
       const allowed=state.slices.flatMap(s=>readProjectDocument(root,s.contract_ref).allowed_write_paths);
+      errors.push(...validateWorkspaceCandidate(root,state.overall.workspace,changes,allowed));
       errors.push(...validateWritePaths(root,allowed,changes));
       const review=readProjectDocument(root,state.overall.review_ref);
       const current=snapshotInputs(root,allowed);
@@ -123,6 +128,10 @@ export function validateDevelopmentGate(root, state, mode) {
       const contracts=state.slices.map(s=>readProjectDocument(root,s.contract_ref));
       const overallContract={allowed_write_paths:[...new Set(contracts.flatMap(c=>c.allowed_write_paths))],artifacts:Object.assign({},...contracts.map(c=>c.artifacts)),required_checks:required,verification_plan:state.overall.verification_plan};
       errors.push(...validateVerificationPlan(overallContract));
+      errors.push(...deliveryResults(state,(definition,recorded)=>{
+        try {return verifyExecutionReceipt(root,readProjectDocument(root,recorded.evidence_ref),overallContract,definition);}
+        catch {return ['交付回执不可读'];}
+      }).errors);
       for(const definition of overallContract.verification_plan) {
         const check=state.overall.checks?.find(c=>c.command===definition.command);
         if(!check) continue;
